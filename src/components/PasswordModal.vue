@@ -114,29 +114,38 @@ function onAfterLeave() {
   stopRipple = null
 }
 
-// Keeps the sheet's own height pinned to the visual viewport instead of
-// the layout one, so when the on-screen keyboard opens, the sheet shrinks
-// to sit right above it (matching .password-modal__viewport-height below)
-// rather than being covered by it or leaving a gap underneath. iOS Safari
+// Keeps the sheet's own box pinned to the visual viewport instead of the
+// layout one, so when the on-screen keyboard opens, the sheet shrinks to
+// sit right above it — flush against the keyboard's own top edge,
+// including whatever accessory row it draws above its keys (the QuickType/
+// predictive-text bar on iOS) — instead of leaving a gap under it. Reading
+// height alone wasn't enough for that: it left the gap this was meant to
+// close, because the sheet's own top was still pinned to 0 while only its
+// height shrank — offsetTop closes the other half of that box. iOS Safari
 // in particular resizes only the visual viewport on keyboard-open, not the
 // layout one that plain vh/100dvh units track.
 const viewportHeight = ref(null)
+const viewportTop = ref(null)
 
-function updateViewportHeight() {
-  if (window.visualViewport) {
-    viewportHeight.value = `${window.visualViewport.height}px`
-  }
+function updateViewportRect() {
+  const vv = window.visualViewport
+  if (!vv) return
+  viewportHeight.value = `${vv.height}px`
+  viewportTop.value = `${vv.offsetTop}px`
 }
 
 function watchViewport() {
   if (!window.visualViewport) return
-  updateViewportHeight()
-  window.visualViewport.addEventListener('resize', updateViewportHeight)
+  updateViewportRect()
+  window.visualViewport.addEventListener('resize', updateViewportRect)
+  window.visualViewport.addEventListener('scroll', updateViewportRect)
 }
 
 function unwatchViewport() {
-  window.visualViewport?.removeEventListener('resize', updateViewportHeight)
+  window.visualViewport?.removeEventListener('resize', updateViewportRect)
+  window.visualViewport?.removeEventListener('scroll', updateViewportRect)
   viewportHeight.value = null
+  viewportTop.value = null
 }
 
 watch(
@@ -190,18 +199,34 @@ onBeforeUnmount(unwatchViewport)
       <div
         v-if="open"
         class="password-modal"
-        :style="viewportHeight ? { height: viewportHeight } : null"
+        :style="viewportHeight ? { height: viewportHeight, top: viewportTop } : null"
         @keydown="onOverlayKeydown"
       >
+        <!-- touchend (in addition to click) on both dismiss targets below:
+             the input auto-focuses on open now, so the keyboard is already
+             up by the time someone taps to close — on iOS Safari, a tap
+             elsewhere while a keyboard is open doesn't reliably raise a
+             click event on that first tap (it can just dismiss the
+             keyboard instead), needing a second tap to actually register.
+             touchend fires immediately on the same tap regardless; .prevent
+             stops the browser's follow-up synthetic click so close() only
+             runs once. -->
         <div
           class="password-modal__backdrop"
           :style="{ backgroundImage: `url(${starfieldTile})` }"
           @click="close"
+          @touchend.prevent="close"
         ></div>
 
         <div class="password-modal__card" role="dialog" aria-modal="true">
           <div class="password-modal__topbar">
-            <button type="button" class="password-modal__close" aria-label="Закрыть" @click="close">
+            <button
+              type="button"
+              class="password-modal__close"
+              aria-label="Закрыть"
+              @click="close"
+              @touchend.prevent="close"
+            >
               <img :src="closeIcon" alt="" />
             </button>
           </div>
@@ -551,13 +576,17 @@ onBeforeUnmount(unwatchViewport)
   }
 
   .password-modal__subtitle {
-    font-size: 20px;
+    font-size: 16px;
     font-style: normal;
   }
 
   .password-modal__input-block {
     width: 100%;
     gap: 48px;
+  }
+
+  .password-modal__tip {
+    font-size: 16px;
   }
 
   .password-modal__pill {

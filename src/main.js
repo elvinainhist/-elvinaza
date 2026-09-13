@@ -45,14 +45,20 @@ app.directive('scale-stage', {
     el._scaleStageObserver = observer
     // ResizeObserver only fires on the frame's own size *changing* — if the
     // very first apply() above landed while the frame was still mid-layout
-    // (e.g. before a web font swap reflows it, seen on some real mobile
-    // devices but not reproduced in desktop devtools), nothing here would
-    // ever recompute it. These re-run once, after layout has fully settled.
+    // (seen on some real mobile devices but not reproduced in desktop
+    // devtools — e.g. before a web font swap reflows it), nothing here
+    // would ever recompute it since the frame's settled size may be
+    // identical to its unsettled one. These are extra passes once layout
+    // has actually had a chance to settle.
+    requestAnimationFrame(() => requestAnimationFrame(apply))
     window.addEventListener('load', apply, { once: true })
+    window.addEventListener('orientationchange', apply)
     document.fonts?.ready?.then(apply)
+    el._scaleStageApply = apply
   },
   unmounted(el) {
     el._scaleStageObserver?.disconnect()
+    if (el._scaleStageApply) window.removeEventListener('orientationchange', el._scaleStageApply)
   },
 })
 

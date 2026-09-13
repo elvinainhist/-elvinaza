@@ -12,6 +12,15 @@
 
 body {
   margin: 0;
+  background: #0e0e0e;
+}
+
+/* Matches the page's own background instead of the browser's default
+   white — on a slow mobile connection, images can take a while to arrive,
+   and without this the reserved space they occupy shows as a jarring
+   white block against the site's otherwise all-dark design until then. */
+img {
+  background: #0e0e0e;
 }
 
 .reveal {

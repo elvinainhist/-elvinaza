@@ -1,5 +1,5 @@
 <script setup>
-import bannerImg from '../assets/contact/banner.png'
+import bannerImg from '../assets/contact/banner.webp'
 import { createHoverRipple } from '../hoverRipple'
 import { createDissolveReveal } from '../dissolveReveal'
 
@@ -208,10 +208,7 @@ const linkRippleTelegram = createHoverRipple(
                   >Telegram</a
                 >
               </div>
-              <span
-                class="contact__mobile-knob"
-                style="filter: url(#scroll-ripple-filter) url(#contact-knob-filter)"
-              ></span>
+              <span class="contact__mobile-knob" style="filter: url(#contact-knob-filter)"></span>
             </div>
           </div>
 
@@ -248,7 +245,7 @@ const linkRippleTelegram = createHoverRipple(
       <div class="contact__mobile-banner-viewport">
         <div class="contact__mobile-banner-crop">
           <div class="contact__mobile-banner">
-            <img :src="bannerImg" alt="" class="scroll-ripple" style="filter: url(#scroll-ripple-filter) url(#contact-cloud-filter)" />
+            <img :src="bannerImg" alt="" style="filter: url(#contact-cloud-filter)" />
           </div>
         </div>
       </div>
@@ -437,9 +434,7 @@ const linkRippleTelegram = createHoverRipple(
        bottom border peeks out under the cloud instead of "closing" it. */
     border: 1px solid #5b92df;
     border-bottom: none;
-    /* Hover can't reach these on touch, so mobile also rides the scroll
-       ripple — same displacement/offset ids, extra input source. */
-    filter: url(#scroll-ripple-filter) url(#contact-door-filter);
+    filter: url(#contact-door-filter);
     pointer-events: none;
   }
 

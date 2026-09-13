@@ -1,6 +1,6 @@
 <script setup>
 import card1Bg from '../assets/projects/card1-bg.jpg'
-import card1Shot from '../assets/projects/card1-shot.png'
+import card1Shot from '../assets/projects/card1-shot.jpg'
 import card2Bg from '../assets/projects/card2-bg.jpg'
 import card2Shot from '../assets/projects/card2-shot.png'
 import card3Bg from '../assets/projects/card3-bg.jpg'
