@@ -1,0 +1,505 @@
+<script setup>
+import { ref, watch } from 'vue'
+import closeIcon from '../assets/password/close-x.svg'
+import starfieldTile from '../assets/password/starfield.png'
+import { playTransitionRipple } from '../transitionRipple'
+
+const props = defineProps({
+  open: { type: Boolean, default: false },
+})
+const emit = defineEmits(['close'])
+
+// Warm the browser's image cache so the backdrop texture isn't decoded
+// for the first time during the open transition.
+new Image().src = starfieldTile
+
+const digits = ref('')
+const error = ref(false)
+const isFocused = ref(false)
+const inputRef = ref(null)
+
+let debounceTimer = null
+
+function sanitize(value) {
+  return value.replace(/\D/g, '').slice(0, 4)
+}
+
+function clearDebounce() {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
+}
+
+function validate() {
+  clearDebounce()
+  // No real password exists yet — any attempt is treated as wrong.
+  error.value = true
+}
+
+function onInput(e) {
+  digits.value = sanitize(e.target.value)
+  e.target.value = digits.value
+  if (error.value) error.value = false
+  clearDebounce()
+  if (digits.value.length === 4) {
+    debounceTimer = setTimeout(validate, 500)
+  }
+}
+
+function onFocus() {
+  isFocused.value = true
+}
+
+function onBlur() {
+  isFocused.value = false
+  clearDebounce()
+  if (digits.value.length === 4) validate()
+}
+
+function onKeydown(e) {
+  if (e.key === 'Enter') validate()
+}
+
+function close() {
+  emit('close')
+}
+
+function onOverlayKeydown(e) {
+  if (e.key === 'Escape') close()
+}
+
+function focusInput() {
+  inputRef.value?.focus()
+}
+
+// The card warps through its displacement filter while it is in motion:
+// `.password-modal-enter-active/-leave-active` hang the filter on it, these
+// hooks drive how hard it bites.
+let stopRipple = null
+
+function onEnter() {
+  stopRipple?.()
+  stopRipple = playTransitionRipple('modal-ripple-displacement', {
+    duration: 450,
+    peak: 225,
+    shape: 'decay',
+  })
+}
+
+function onAfterEnter() {
+  stopRipple?.()
+  stopRipple = null
+  focusInput()
+}
+
+function onLeave() {
+  stopRipple?.()
+  stopRipple = playTransitionRipple('modal-ripple-displacement', {
+    duration: 250,
+    peak: 225,
+    shape: 'attack',
+  })
+}
+
+function onAfterLeave() {
+  stopRipple?.()
+  stopRipple = null
+}
+
+watch(
+  () => props.open,
+  (isOpen) => {
+    document.body.style.overflow = isOpen ? 'hidden' : ''
+    if (isOpen) {
+      digits.value = ''
+      error.value = false
+      isFocused.value = false
+      clearDebounce()
+    }
+  },
+)
+</script>
+
+<template>
+  <Teleport to="body">
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true" focusable="false">
+      <filter id="modal-ripple-filter" x="-15%" y="-15%" width="130%" height="130%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.018 0.033" numOctaves="2" seed="11" result="noise" />
+        <feDisplacementMap
+          id="modal-ripple-displacement"
+          in="SourceGraphic"
+          in2="noise"
+          scale="0"
+          xChannelSelector="R"
+          yChannelSelector="G"
+        />
+      </filter>
+    </svg>
+
+    <Transition
+      name="password-modal"
+      :duration="{ enter: 450, leave: 250 }"
+      @enter="onEnter"
+      @after-enter="onAfterEnter"
+      @leave="onLeave"
+      @after-leave="onAfterLeave"
+    >
+      <div v-if="open" class="password-modal" @keydown="onOverlayKeydown">
+        <div
+          class="password-modal__backdrop"
+          :style="{ backgroundImage: `url(${starfieldTile})` }"
+          @click="close"
+        ></div>
+
+        <div class="password-modal__card" role="dialog" aria-modal="true">
+          <div class="password-modal__topbar">
+            <button type="button" class="password-modal__close" aria-label="Закрыть" @click="close">
+              <img :src="closeIcon" alt="" />
+            </button>
+          </div>
+
+          <div class="password-modal__body">
+          <div class="password-modal__content">
+            <div class="password-modal__title-block">
+              <p class="password-modal__title">Скажите пароль</p>
+              <p class="password-modal__subtitle">чтобы увидеть проекты</p>
+            </div>
+
+            <div class="password-modal__input-block">
+              <div class="password-modal__pill" :class="{ 'password-modal__pill--error': error }">
+                <input
+                  ref="inputRef"
+                  type="tel"
+                  inputmode="numeric"
+                  autocomplete="off"
+                  maxlength="4"
+                  class="password-modal__native-input"
+                  aria-label="Пароль"
+                  @input="onInput"
+                  @focus="onFocus"
+                  @blur="onBlur"
+                  @keydown="onKeydown"
+                />
+
+                <span v-for="i in 4" :key="'slot' + i" class="password-modal__slot">
+                  <span v-if="digits.length >= i" class="password-modal__digit">{{ digits[i - 1] }}</span>
+                  <span v-else-if="isFocused && digits.length === i - 1" class="password-modal__caret"></span>
+                  <span v-else class="password-modal__dot"></span>
+                </span>
+
+                <p v-if="error" class="password-modal__error">Пароль не подходит</p>
+              </div>
+
+              <p class="password-modal__tip">
+                Если нет пароля, напишите мне<br />
+                <a href="https://t.me/elvinaza" target="_blank" rel="noopener">в Телеграм</a>
+                или
+                <a href="mailto:elvinainhist@gmail.com">на почту</a>
+              </p>
+            </div>
+          </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+</template>
+
+<style scoped>
+.password-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.password-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: #0e0e0e;
+  background-repeat: repeat;
+  background-size: 260px 260px;
+}
+
+.password-modal__card {
+  position: relative;
+  width: 100%;
+  max-width: 1120px;
+  min-height: calc(100vh - 80px);
+  margin-top: 80px;
+  box-sizing: border-box;
+  border-radius: 60px 60px 0 0;
+  background: linear-gradient(to bottom, #bbd3ee, #c9dbed);
+  display: flex;
+  flex-direction: column;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  color: #0e0e0e;
+}
+
+.password-modal__topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  flex: 0 0 auto;
+  width: 100%;
+  height: 120px;
+  background: #bed4ee;
+  border-radius: 60px 60px 0 0;
+}
+
+.password-modal__close {
+  position: absolute;
+  right: 40px;
+  top: 40px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.password-modal__close img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.password-modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 90px 368px;
+}
+
+.password-modal__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 72px;
+  width: 100%;
+  max-width: 939px;
+}
+
+.password-modal__title-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.password-modal__title {
+  margin: 0;
+  font-size: 96px;
+  font-weight: 700;
+  line-height: normal;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.password-modal__subtitle {
+  margin: 0;
+  font-size: 24px;
+  font-style: italic;
+  line-height: normal;
+  text-align: center;
+}
+
+.password-modal__input-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 52px;
+}
+
+.password-modal__pill {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 544px;
+  max-width: 100%;
+  height: 80px;
+  border: 1px solid #0e0e0e;
+}
+
+.password-modal__pill--error {
+  border-color: #f22665;
+}
+
+.password-modal__native-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: none;
+  padding: 0;
+  cursor: text;
+}
+
+.password-modal__slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 52px;
+}
+
+.password-modal__digit {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 52px;
+  color: #0e0e0e;
+}
+
+.password-modal__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #0e0e0e;
+}
+
+.password-modal__caret {
+  width: 2px;
+  height: 40px;
+  background: #0e0e0e;
+  animation: password-modal-caret-blink 1s step-end infinite;
+}
+
+@keyframes password-modal-caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.password-modal__error {
+  position: absolute;
+  left: 50%;
+  top: 85px;
+  transform: translateX(-50%);
+  width: 544px;
+  max-width: 100%;
+  margin: 0;
+  font-size: 16px;
+  text-align: center;
+  color: #f22665;
+}
+
+.password-modal__tip {
+  margin: 0;
+  width: 303px;
+  max-width: 100%;
+  font-size: 20px;
+  line-height: normal;
+  text-align: center;
+}
+
+.password-modal__tip a {
+  position: relative;
+  color: inherit;
+  text-decoration: none;
+}
+
+.password-modal__tip a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 1px;
+  background: currentColor;
+}
+
+.password-modal-enter-active .password-modal__backdrop,
+.password-modal-leave-active .password-modal__backdrop {
+  transition: opacity 0.25s ease;
+  will-change: opacity;
+}
+
+.password-modal-enter-from .password-modal__backdrop,
+.password-modal-leave-to .password-modal__backdrop {
+  opacity: 0;
+}
+
+.password-modal-enter-active .password-modal__card {
+  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  filter: url(#modal-ripple-filter);
+  will-change: transform, filter;
+}
+
+.password-modal-leave-active .password-modal__card {
+  transition: transform 0.25s ease-in;
+  filter: url(#modal-ripple-filter);
+  will-change: transform, filter;
+}
+
+.password-modal-enter-from .password-modal__card,
+.password-modal-leave-to .password-modal__card {
+  transform: translateY(100%);
+}
+
+@media (max-width: 767px) {
+  .password-modal {
+    align-items: flex-end;
+  }
+
+  .password-modal__card {
+    height: 508px;
+    max-height: 100%;
+    min-height: 0;
+    margin-top: 0;
+    border-radius: 24px 24px 0 0;
+  }
+
+  .password-modal__topbar {
+    height: 60px;
+    border-radius: 24px 24px 0 0;
+  }
+
+  .password-modal__close {
+    right: 17px;
+    top: 16px;
+    width: 44px;
+    height: 44px;
+  }
+
+  .password-modal__body {
+    padding: 12px 20px 52px;
+  }
+
+  .password-modal__content {
+    gap: 48px;
+  }
+
+  .password-modal__title {
+    font-size: 56px;
+    line-height: 64px;
+  }
+
+  .password-modal__subtitle {
+    font-size: 20px;
+  }
+
+  .password-modal__input-block {
+    width: 100%;
+    gap: 48px;
+  }
+
+  .password-modal__pill {
+    width: 100%;
+    gap: 14px;
+  }
+}
+</style>
