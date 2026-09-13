@@ -37,12 +37,19 @@ app.directive('scale-stage', {
     if (!frame || !nativeWidth) return
     const apply = () => {
       const scale = frame.getBoundingClientRect().width / nativeWidth
-      el.style.transform = `scale(${scale})`
+      if (scale > 0) el.style.transform = `scale(${scale})`
     }
     apply()
     const observer = new ResizeObserver(apply)
     observer.observe(frame)
     el._scaleStageObserver = observer
+    // ResizeObserver only fires on the frame's own size *changing* — if the
+    // very first apply() above landed while the frame was still mid-layout
+    // (e.g. before a web font swap reflows it, seen on some real mobile
+    // devices but not reproduced in desktop devtools), nothing here would
+    // ever recompute it. These re-run once, after layout has fully settled.
+    window.addEventListener('load', apply, { once: true })
+    document.fonts?.ready?.then(apply)
   },
   unmounted(el) {
     el._scaleStageObserver?.disconnect()

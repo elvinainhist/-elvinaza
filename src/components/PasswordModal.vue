@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import closeIcon from '../assets/password/close-x.svg'
 import starfieldTile from '../assets/password/starfield.png'
 import { playTransitionRipple } from '../transitionRipple'
@@ -90,6 +90,13 @@ function onEnter() {
 function onAfterEnter() {
   stopRipple?.()
   stopRipple = null
+  // Focusing here (after the transition) is too late for the keyboard to
+  // open automatically on mobile — a programmatic focus() only raises the
+  // keyboard if it's still inside the browser's "recent user gesture"
+  // window, which a 450ms-later transition hook has already fallen out of.
+  // The real focus() that opens the keyboard happens immediately on open
+  // (see the watcher below); this is just a safety net for browsers where
+  // that one didn't land (e.g. the input wasn't in the DOM yet).
   focusInput()
 }
 
@@ -107,6 +114,31 @@ function onAfterLeave() {
   stopRipple = null
 }
 
+// Keeps the sheet's own height pinned to the visual viewport instead of
+// the layout one, so when the on-screen keyboard opens, the sheet shrinks
+// to sit right above it (matching .password-modal__viewport-height below)
+// rather than being covered by it or leaving a gap underneath. iOS Safari
+// in particular resizes only the visual viewport on keyboard-open, not the
+// layout one that plain vh/100dvh units track.
+const viewportHeight = ref(null)
+
+function updateViewportHeight() {
+  if (window.visualViewport) {
+    viewportHeight.value = `${window.visualViewport.height}px`
+  }
+}
+
+function watchViewport() {
+  if (!window.visualViewport) return
+  updateViewportHeight()
+  window.visualViewport.addEventListener('resize', updateViewportHeight)
+}
+
+function unwatchViewport() {
+  window.visualViewport?.removeEventListener('resize', updateViewportHeight)
+  viewportHeight.value = null
+}
+
 watch(
   () => props.open,
   (isOpen) => {
@@ -116,9 +148,19 @@ watch(
       error.value = false
       isFocused.value = false
       clearDebounce()
+      watchViewport()
+      // Focusing synchronously off the open toggle (via nextTick, still
+      // inside the same gesture chain as whatever click set `open` true)
+      // is what actually raises the on-screen keyboard on mobile — see
+      // onAfterEnter's comment for why waiting for the transition doesn't.
+      nextTick(focusInput)
+    } else {
+      unwatchViewport()
     }
   },
 )
+
+onBeforeUnmount(unwatchViewport)
 </script>
 
 <template>
@@ -145,7 +187,12 @@ watch(
       @leave="onLeave"
       @after-leave="onAfterLeave"
     >
-      <div v-if="open" class="password-modal" @keydown="onOverlayKeydown">
+      <div
+        v-if="open"
+        class="password-modal"
+        :style="viewportHeight ? { height: viewportHeight } : null"
+        @keydown="onOverlayKeydown"
+      >
         <div
           class="password-modal__backdrop"
           :style="{ backgroundImage: `url(${starfieldTile})` }"
@@ -435,14 +482,29 @@ watch(
 
 .password-modal-enter-active .password-modal__card {
   transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+/* Filter lives on .password-modal__body, not the whole card: an SVG
+   filter warps where content is painted but not its actual hit-testing
+   box, so putting it on the card warped the close button's visible
+   position away from where taps actually land — requiring a second tap
+   once the ripple (peak displacement 225) had decayed back to 0. Body
+   holds everything except the topbar/close button, so it can melt freely
+   without dragging an interactive control along with it. */
+.password-modal-enter-active .password-modal__body {
   filter: url(#modal-ripple-filter);
-  will-change: transform, filter;
+  will-change: filter;
 }
 
 .password-modal-leave-active .password-modal__card {
   transition: transform 0.25s ease-in;
+  will-change: transform;
+}
+
+.password-modal-leave-active .password-modal__body {
   filter: url(#modal-ripple-filter);
-  will-change: transform, filter;
+  will-change: filter;
 }
 
 .password-modal-enter-from .password-modal__card,
@@ -484,12 +546,13 @@ watch(
   }
 
   .password-modal__title {
-    font-size: 56px;
-    line-height: 64px;
+    font-size: 32px;
+    line-height: 36px;
   }
 
   .password-modal__subtitle {
     font-size: 20px;
+    font-style: normal;
   }
 
   .password-modal__input-block {
