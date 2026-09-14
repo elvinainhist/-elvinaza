@@ -501,36 +501,26 @@ const linkRippleTelegram = createHoverRipple(
   }
 
   .contact__mobile-banner img {
-    /* object-fit: cover guarantees the window is always fully covered by
-       solid cloud, at any width or window height, with no manual crop-
-       percentage math that can leave gaps — a shorter, hand-tuned version
-       of this left the top of the window (where it should have overlapped
-       the door) nearly empty, reading as two separate, non-overlapping
-       layers instead of the cloud sitting in front of the door. Slight
-       (10%) oversize keeps the cloud's own tapered left/right edges (it's
-       a single puffy shape on a plain background, not an edge-to-edge
-       texture) from thinning out right at the screen edges; object-
-       position targets the source photo's own widest, most solid band
-       (~50% down it, found by scanning its alpha channel). No background-
-       color (unlike other large photos on the site): it paints behind an
-       img's own transparent pixels too, not just while loading, and this
-       photo is mostly transparent sky around the cloud shape, sitting in
-       front of the door on purpose — an opaque backing was blocking the
-       door from showing through exactly where it should. */
+    /* Exact crop straight from the Figma reference (node 1235-7095's own
+       fill transform), not object-fit:cover math approximating it —
+       cover-based guesses kept landing wrong (cloud floating with sky
+       showing below it, or the opposite, clipped at the top too) because
+       "cover" only guarantees the window is full, not which slice of the
+       photo fills it; these percentages ARE that slice. Both resolve
+       against .contact__mobile-banner's own box (100% = its width/height
+       respectively), so this scales correctly with it at any viewport
+       width without needing to be re-tuned. No background-color (unlike
+       other large photos on the site): it paints behind an img's own
+       transparent pixels too, not just while loading, and this photo is
+       mostly transparent sky around the cloud shape, sitting in front of
+       the door on purpose — an opaque backing was blocking the door from
+       showing through exactly where it should. */
     position: absolute;
-    left: -5%;
-    top: 0;
-    width: 110%;
-    height: 100%;
-    object-fit: cover;
-    /* Matches the Figma reference (node 1235-7084): the cloud's own body
-       runs past the window's bottom edge, so it's the window doing the
-       cropping, not the cloud's own rounded outline — center 50% is what
-       lands that crop at the same height on this window's (now narrower,
-       134/390) aspect ratio; it moved once already when the window's own
-       height ratio changed, so it's tied to that value, not a fixed
-       constant. */
-    object-position: center 50%;
+    left: -15.64%;
+    top: -209.03%;
+    width: 131.28%;
+    height: 573.13%;
+    max-width: none;
     display: block;
   }
 }

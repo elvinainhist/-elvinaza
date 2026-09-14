@@ -95,39 +95,26 @@ function onAfterEnter() {
 // with no separate layer — and the open/close motion is just the slide +
 // fade below, no distortion.
 
-// Tracks the on-screen keyboard on mobile via visualViewport instead of
-// relying on the viewport meta's interactive-widget=resizes-content: that
-// CSS-only mechanism isn't supported everywhere, and where it silently
-// isn't, .password-modal__card's `bottom: 0` stays pinned to the full,
-// keyboard-unaware layout viewport — the card ends up sitting behind the
-// keyboard until the browser's own "scroll focused input into view"
-// behavior yanks it up separately, which is exactly the "opens under the
-// keyboard, then jumps above it" bug this replaces. Tracking
-// visualViewport directly works regardless of that meta tag's support.
-const keyboardOffset = ref(0)
-const visibleViewportHeight = ref(null)
-
-function updateViewportMetrics() {
-  const vv = window.visualViewport
-  if (!vv) return
-  keyboardOffset.value = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
-  visibleViewportHeight.value = vv.height
-}
-
-function watchKeyboard() {
-  if (!window.visualViewport) return
-  window.visualViewport.addEventListener('resize', updateViewportMetrics)
-  window.visualViewport.addEventListener('scroll', updateViewportMetrics)
-  updateViewportMetrics()
-}
-
-function unwatchKeyboard() {
-  if (!window.visualViewport) return
-  window.visualViewport.removeEventListener('resize', updateViewportMetrics)
-  window.visualViewport.removeEventListener('scroll', updateViewportMetrics)
-  keyboardOffset.value = 0
-  visibleViewportHeight.value = null
-}
+// Deliberately NOT tracking the keyboard via visualViewport (tried twice:
+// once via the interactive-widget=resizes-content meta + dvh, once via
+// hand-rolled visualViewport math) — both left a gap between the sheet and
+// the keyboard, because neither the meta tag's shrink nor
+// visualViewport.height reliably accounts for iOS's own input accessory
+// bar (the Prev/Next/Done row): it sits on top of the keyboard but isn't
+// consistently folded into either signal, so any offset computed from them
+// undershoots by the accessory bar's height and leaves it exposed as bare
+// (black) backdrop below the card.
+// The fix is to stop estimating. `.password-modal__card` here just stays
+// plain `position: fixed; bottom: 0` (see the mobile media query) — which
+// is pinned to the TRUE device screen edge, keyboard or not, by definition
+// of what fixed positioning against the layout viewport means. The card's
+// own content is short enough (~416px, see the Figma reference) to always
+// clear well above any real keyboard height on its own; whatever portion
+// of the card's box falls below the keyboard's actual top edge — accessory
+// bar included, whatever its height turns out to be — is simply hidden
+// behind the (fully opaque) keyboard instead of showing through a gap,
+// because the two now share the exact same anchor point instead of each
+// being independently estimated.
 
 // True scroll lock: plain `body { overflow: hidden }` still lets iOS
 // Safari rubber-band-scroll the page behind a position:fixed overlay.
@@ -156,7 +143,6 @@ watch(
   (isOpen) => {
     if (isOpen) {
       lockBodyScroll()
-      watchKeyboard()
       digits.value = ''
       error.value = false
       isFocused.value = false
@@ -168,16 +154,12 @@ watch(
       nextTick(focusInput)
     } else {
       unlockBodyScroll()
-      unwatchKeyboard()
     }
   },
 )
 
 onBeforeUnmount(() => {
-  if (props.open) {
-    unlockBodyScroll()
-    unwatchKeyboard()
-  }
+  if (props.open) unlockBodyScroll()
 })
 </script>
 
@@ -205,15 +187,7 @@ onBeforeUnmount(() => {
           @touchend.prevent="close"
         ></div>
 
-        <div
-          class="password-modal__card"
-          role="dialog"
-          aria-modal="true"
-          :style="{
-            bottom: keyboardOffset + 'px',
-            maxHeight: visibleViewportHeight ? visibleViewportHeight + 'px' : undefined,
-          }"
-        >
+        <div class="password-modal__card" role="dialog" aria-modal="true">
           <div class="password-modal__topbar">
             <button
               type="button"
@@ -277,10 +251,11 @@ onBeforeUnmount(() => {
 .password-modal {
   position: fixed;
   inset: 0;
-  /* dvh here is only a same-frame fallback for the instant before the
-     visualViewport JS above has run once — the card's own inline
-     max-height (bound to visualViewport.height) is what actually tracks
-     the on-screen keyboard, see the comment above updateViewportMetrics. */
+  /* This root only hosts the backdrop (itself position:fixed; inset:0,
+     sized independently) and the card (position:fixed; bottom:0 on
+     mobile, see the card's own comment) — neither actually depends on
+     this element's own height, so dvh vs 100% doesn't matter here beyond
+     keeping the flex centering sane on desktop. */
   height: 100dvh;
   z-index: 1000;
   display: flex;
@@ -550,11 +525,14 @@ onBeforeUnmount(() => {
     transform: translateY(100%);
     border-radius: 60px 60px 0 0;
   }
-  40% {
-    border-radius: 20px 100px 10px 50px;
+  25% {
+    border-radius: 10px 170px 50px 100px;
   }
-  70% {
-    border-radius: 90px 20px 50px 10px;
+  50% {
+    border-radius: 150px 10px 100px 30px;
+  }
+  75% {
+    border-radius: 30px 120px 15px 80px;
   }
   100% {
     transform: translateY(0);
@@ -567,12 +545,15 @@ onBeforeUnmount(() => {
     transform: translateY(0);
     border-radius: 60px 60px 0 0;
   }
-  35% {
-    border-radius: 90px 20px 50px 10px;
+  30% {
+    border-radius: 150px 15px 90px 25px;
+  }
+  70% {
+    border-radius: 15px 160px 30px 100px;
   }
   100% {
     transform: translateY(100%);
-    border-radius: 20px 100px 10px 50px;
+    border-radius: 60px 60px 0 0;
   }
 }
 
@@ -588,13 +569,12 @@ onBeforeUnmount(() => {
   }
 
   .password-modal__card {
-    /* Fixed to the viewport's bottom edge, sized to its own content instead
-       of a flat height that left empty space below short content. `bottom`
-       and `max-height` here are just the pre-JS fallback (keyboard closed,
-       full viewport) — the inline style bound to keyboardOffset /
-       visibleViewportHeight (see the component script) overrides both the
-       moment visualViewport reports the keyboard, keeping the card glued to
-       the keyboard's own top edge with no gap and no second scroll region. */
+    /* Plain, unadjusted `bottom: 0` on purpose — see the script comment
+       above lockBodyScroll for why this replaced trying to compute a
+       keyboard-aware offset in JS. Sized to its own content instead of a
+       flat height that left empty space below short content; content here
+       (~416px, see the Figma reference) is short enough to always clear a
+       real keyboard on its own. */
     position: fixed;
     left: 0;
     right: 0;
@@ -608,10 +588,11 @@ onBeforeUnmount(() => {
 
   .password-modal__topbar {
     height: 48px;
-    /* No fill on mobile — the design has the close icon sitting straight on
-       the card's own gradient, not a separate colored band (see the Figma
-       reference: node 1235-7178). */
-    background: transparent;
+    /* #bed4ee straight from Figma (node 1256-2346's own fill) — reads as
+       nearly the same color as the card's own gradient top (#bbd3ee) at a
+       glance, which is why this looked fill-less from a screenshot; it
+       isn't, and get_design_context confirmed the literal value. */
+    background: #bed4ee;
     border-radius: 24px 24px 0 0;
   }
 
@@ -619,9 +600,10 @@ onBeforeUnmount(() => {
     /* Box stays a generous 44px tap target (shrinking the hit area was the
        direct cause of the multi-tap-to-close complaints); only the icon
        inside, via padding, renders at the smaller size from the Figma
-       reference. */
-    right: 8px;
-    top: 2px;
+       reference (node 1256-2346: an 18.8×18.4px glyph, 20.6px off the
+       card's right edge, 23px down from the topbar's own top). */
+    right: 9px;
+    top: 11px;
     width: 44px;
     height: 44px;
     padding: 12px;

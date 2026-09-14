@@ -3,7 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+    <!-- No interactive-widget=resizes-content: it shrinks the layout
+         viewport itself for the on-screen keyboard, which made
+         PasswordModal's `position: fixed; bottom: 0` sheet track that
+         shrunk viewport too — and that shrink doesn't reliably account for
+         iOS's own keyboard accessory bar (Prev/Next/Done), leaving a bare
+         gap between the sheet and the keyboard. Without this, `bottom: 0`
+         stays pinned to the true, un-shrinking device screen edge always,
+         and the (opaque) keyboard simply covers whatever part of the sheet
+         falls behind it instead — see PasswordModal.vue's own comment on
+         this for the full reasoning. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
