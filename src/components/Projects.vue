@@ -172,6 +172,7 @@ onMounted(() => {
             <div class="project__image-inner">
               <img
                 :src="card1Bg"
+                loading="lazy"
                 class="project__bg scroll-ripple"
                 style="filter: url(#project-scroll-ripple-filter) url(#project-ripple-filter-1)"
                 alt=""
@@ -196,7 +197,7 @@ onMounted(() => {
               <span class="ruler-marker__dot" :class="{ 'ruler-marker__dot--on': dotsOn }"></span>
             </div>
             <div class="project__image-inner">
-              <img :src="card1Shot" class="project__shot project__shot--1" alt="Раздел товаров для продавцов" />
+              <img :src="card1Shot" loading="lazy" class="project__shot project__shot--1" alt="Раздел товаров для продавцов" />
             </div>
           </div>
           <div class="project__info">
@@ -229,6 +230,7 @@ onMounted(() => {
             <div class="project__image-inner">
               <img
                 :src="card2Bg"
+                loading="lazy"
                 class="project__bg scroll-ripple"
                 style="filter: url(#project-scroll-ripple-filter) url(#project-ripple-filter-2)"
                 alt=""
@@ -252,7 +254,7 @@ onMounted(() => {
                   }"
                 ></div>
               </div>
-              <img :src="card2Shot" class="project__shot project__shot--2" alt="Главный экран для сотрудников ПВЗ" />
+              <img :src="card2Shot" loading="lazy" class="project__shot project__shot--2" alt="Главный экран для сотрудников ПВЗ" />
             </div>
           </div>
           <div class="project__info">
@@ -283,6 +285,7 @@ onMounted(() => {
             <div class="project__image-inner">
               <img
                 :src="card3Bg"
+                loading="lazy"
                 class="project__bg scroll-ripple"
                 style="filter: url(#project-scroll-ripple-filter) url(#project-ripple-filter-3)"
                 alt=""
@@ -340,6 +343,7 @@ onMounted(() => {
         <div class="project-mobile__image project-mobile__image--square" ref="cardImageMobile1">
           <img
             :src="mobileCard1"
+            loading="lazy"
             alt=""
             style="filter: url(#project-ripple-filter-1)"
           />
@@ -362,6 +366,7 @@ onMounted(() => {
         <div class="project-mobile__image project-mobile__image--tall" ref="cardImageMobile2">
           <img
             :src="mobileCard2"
+            loading="lazy"
             alt=""
             style="filter: url(#project-ripple-filter-2)"
           />
@@ -382,6 +387,7 @@ onMounted(() => {
         <div class="project-mobile__image project-mobile__image--square" ref="cardImageMobile3">
           <img
             :src="mobileCard3"
+            loading="lazy"
             alt=""
             style="filter: url(#project-ripple-filter-3)"
           />
@@ -476,6 +482,7 @@ onMounted(() => {
   display: block;
   width: 100%;
   height: 100%;
+  background: #0e0e0e;
   object-fit: cover;
   transform: scale(1.08);
 }
@@ -483,6 +490,7 @@ onMounted(() => {
 .project__shot {
   position: absolute;
   display: block;
+  background: #0e0e0e;
   pointer-events: none;
 }
 
@@ -771,6 +779,7 @@ onMounted(() => {
     display: block;
     width: 100%;
     height: 100%;
+    background: #0e0e0e;
     object-fit: cover;
   }
 

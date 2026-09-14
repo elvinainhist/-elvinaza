@@ -165,7 +165,7 @@ const linkRippleTelegram = createHoverRipple(
         </div>
 
         <div class="contact__banner reveal" v-reveal>
-          <img :src="bannerImg" alt="" class="scroll-ripple" style="filter: url(#scroll-ripple-filter) url(#contact-cloud-filter)" />
+          <img :src="bannerImg" alt="" loading="lazy" class="scroll-ripple" style="filter: url(#scroll-ripple-filter) url(#contact-cloud-filter)" />
         </div>
       </div>
     </div>
@@ -245,7 +245,7 @@ const linkRippleTelegram = createHoverRipple(
       <div class="contact__mobile-banner-viewport">
         <div class="contact__mobile-banner-crop">
           <div class="contact__mobile-banner">
-            <img :src="bannerImg" alt="" style="filter: url(#contact-cloud-filter)" />
+            <img :src="bannerImg" alt="" loading="lazy" style="filter: url(#contact-cloud-filter)" />
           </div>
         </div>
       </div>
@@ -365,6 +365,7 @@ const linkRippleTelegram = createHoverRipple(
   width: 1064px;
   height: 1536px;
   display: block;
+  background: #0e0e0e;
 }
 
 .contact__mobile {
@@ -535,6 +536,7 @@ const linkRippleTelegram = createHoverRipple(
     width: 100%;
     height: 607.5%;
     display: block;
+    background: #0e0e0e;
   }
 }
 </style>

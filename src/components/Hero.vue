@@ -301,6 +301,7 @@ onBeforeUnmount(() => {
   inset: 0;
   width: 100%;
   height: 100%;
+  background: #0e0e0e;
   transform: scale(1.08);
   object-fit: cover;
   z-index: 1;

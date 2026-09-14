@@ -15,13 +15,12 @@ body {
   background: #0e0e0e;
 }
 
-/* Matches the page's own background instead of the browser's default
-   white — on a slow mobile connection, images can take a while to arrive,
-   and without this the reserved space they occupy shows as a jarring
-   white block against the site's otherwise all-dark design until then. */
-img {
-  background: #0e0e0e;
-}
+/* NOT a blanket `img { background: #0e0e0e }` — every small icon on the
+   site (close-x, export-icon, ...) is itself filled #0e0e0e, meant to sit
+   on a light button/card background; painting the same dark color behind
+   them while they load made them read as solid black squares. Applied
+   per-component instead, only to the large photos that actually sit on
+   the page's own dark background — see each component's own image rules. */
 
 .reveal {
   opacity: 0;
