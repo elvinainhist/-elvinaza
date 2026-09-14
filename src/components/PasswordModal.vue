@@ -87,7 +87,7 @@ function onEnter() {
   })
 }
 
-function onAfterEnter() {
+function onAfterEnter(el) {
   stopRipple?.()
   stopRipple = null
   // Focusing here (after the transition) is too late for the keyboard to
@@ -98,6 +98,30 @@ function onAfterEnter() {
   // (see the watcher below); this is just a safety net for browsers where
   // that one didn't land (e.g. the input wasn't in the DOM yet).
   focusInput()
+  forceTitleRepaint(el)
+}
+
+// Chromium bug workaround: once the ripple filter's attribute animation on
+// .password-modal__card-bg (painted just before the title/subtitle in the
+// same box) stops, the title/subtitle silently stop being painted —
+// getComputedStyle reports completely normal color/opacity/rect the whole
+// time, and nothing else nearby is affected (the tip text below keeps
+// rendering fine, kept alive by the blinking caret's own repaints), so
+// this is Chromium failing to repaint that specific stale region rather
+// than anything actually wrong with the element. A real style mutation
+// (not a no-op) forces Chromium to repaint it; confirmed via Playwright
+// that this reliably brings the text back every time.
+function forceTitleRepaint(root) {
+  const block = root?.querySelector?.('.password-modal__title-block')
+  if (!block) return
+  // Deliberately never reverted: reverting the opacity back to its default
+  // re-triggers the exact same stale-paint bug this works around (verified
+  // directly — the text goes blank again the moment the inline style is
+  // cleared, even though the *computed* opacity is 1 either way). 0.999 is
+  // visually identical to 1, so leaving it set is the stable fix.
+  setTimeout(() => {
+    block.style.opacity = '0.999'
+  }, 150)
 }
 
 function onLeave() {
@@ -212,6 +236,8 @@ onBeforeUnmount(() => {
         ></div>
 
         <div class="password-modal__card" role="dialog" aria-modal="true">
+          <div class="password-modal__card-bg" aria-hidden="true"></div>
+
           <div class="password-modal__topbar">
             <button
               type="button"
@@ -310,26 +336,32 @@ onBeforeUnmount(() => {
   color: #0e0e0e;
 }
 
-/* The card's own background lives here, not as a `background` directly on
-   .password-modal__card, so the open/close ripple (below) can warp just
-   this plain-colored shape without dragging the real content (title,
-   input, tip text — all in .password-modal__body) or the close button
-   through the same distortion: an SVG filter warps where a layer paints,
-   not its hit-testing box, so text run through it reads as visually
+/* The card's own background lives here, as a real sibling element (not a
+   `background` directly on .password-modal__card, and not a ::before
+   pseudo-element either — that was tried first, but Chromium was found to
+   stop painting the title/subtitle text entirely whenever this filter was
+   present on a ::before sibling of theirs, even fully at rest with the
+   filter's scale at 0; swapping to a real element made the text render
+   correctly again), so the open/close ripple (below) can warp just this
+   plain-colored shape without dragging the real content (title, input, tip
+   text — all in .password-modal__body) or the close button through the
+   same distortion: an SVG filter warps where a layer paints, not its
+   hit-testing box, so text run through it reads as visually
    broken/illegible while it's in motion, and the close button's tap
    target would drift away from what's on screen the same way it did
    when the filter briefly lived on .password-modal__card itself. */
-.password-modal__card::before {
-  content: '';
+.password-modal__card-bg {
   position: absolute;
   inset: 0;
-  /* No z-index: painting order alone (a ::before generates, and so paints,
-     before the card's other children) already puts this behind them; a
-     negative z-index here would instead escape .password-modal__card's
-     own stacking (position:relative with no z-index of its own doesn't
-     contain one) and risk painting behind the backdrop instead. */
+  /* No z-index: painting order alone (this sits first among the card's
+     children, so it already paints behind the rest) already puts this
+     behind them; a negative z-index here would instead escape
+     .password-modal__card's own stacking (position:relative with no
+     z-index of its own doesn't contain one) and risk painting behind the
+     backdrop instead. */
   border-radius: inherit;
   background: linear-gradient(to bottom, #bbd3ee, #c9dbed);
+  pointer-events: none;
 }
 
 .password-modal__topbar {
@@ -538,9 +570,8 @@ onBeforeUnmount(() => {
    text warp and read as broken/illegible while in motion. The background
    shape has neither problem — it's decorative and has no text or controls
    of its own to distort or misalign. */
-.password-modal-enter-active .password-modal__card::before {
+.password-modal-enter-active .password-modal__card-bg {
   filter: url(#modal-ripple-filter);
-  will-change: filter;
 }
 
 .password-modal-leave-active .password-modal__card {
@@ -548,9 +579,8 @@ onBeforeUnmount(() => {
   will-change: transform;
 }
 
-.password-modal-leave-active .password-modal__card::before {
+.password-modal-leave-active .password-modal__card-bg {
   filter: url(#modal-ripple-filter);
-  will-change: filter;
 }
 
 .password-modal-enter-from .password-modal__card,
