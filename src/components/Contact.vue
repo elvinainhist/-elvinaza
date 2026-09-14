@@ -524,7 +524,14 @@ const linkRippleTelegram = createHoverRipple(
     width: 110%;
     height: 100%;
     object-fit: cover;
-    object-position: center 50%;
+    /* 50% (dead center of the source photo) landed on the cloud's peak,
+       leaving its own full, rounded silhouette floating inside the window
+       with plain sky visible below it all the way to the window's bottom
+       edge — reads as a separate sticker, not a backdrop the screen cuts
+       off. 40% instead frames low enough that the cloud's own body runs
+       past the window's bottom edge, so it's the window doing the
+       cropping, not the cloud's own outline. */
+    object-position: center 40%;
     display: block;
   }
 }

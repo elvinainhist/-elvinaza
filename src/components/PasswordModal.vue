@@ -2,7 +2,6 @@
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import closeIcon from '../assets/password/close-x.svg'
 import starfieldTile from '../assets/password/starfield.png'
-import { playTransitionRipple } from '../transitionRipple'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -70,82 +69,65 @@ function onOverlayKeydown(e) {
 }
 
 function focusInput() {
-  inputRef.value?.focus()
+  // preventScroll matters here: the input auto-focuses while the card is
+  // still animating in from translateY(100%), and without this the browser
+  // sees a focused element outside the visible area and scrolls its
+  // nearest scrollable ancestor (.password-modal, which has overflow-y:auto
+  // on desktop) to reveal it — fighting the card's own slide-up transition
+  // and reading as an erratic jitter instead of one smooth motion.
+  inputRef.value?.focus({ preventScroll: true })
 }
 
-// The card warps through its displacement filter while it is in motion:
-// `.password-modal-enter-active/-leave-active` hang the filter on it, these
-// hooks drive how hard it bites.
-let stopRipple = null
-
-function onEnter() {
-  stopRipple?.()
-  stopRipple = playTransitionRipple('modal-ripple-displacement', {
-    duration: 450,
-    peak: 225,
-    shape: 'decay',
-  })
-}
-
-function onAfterEnter(el) {
-  stopRipple?.()
-  stopRipple = null
-  // Focusing here (after the transition) is too late for the keyboard to
-  // open automatically on mobile — a programmatic focus() only raises the
-  // keyboard if it's still inside the browser's "recent user gesture"
-  // window, which a 450ms-later transition hook has already fallen out of.
-  // The real focus() that opens the keyboard happens immediately on open
-  // (see the watcher below); this is just a safety net for browsers where
+function onAfterEnter() {
+  // Safety net: the real focus() that raises the keyboard happens
+  // immediately on open (see the watcher below), synchronously enough to
+  // stay in the same user-gesture chain. This just covers browsers where
   // that one didn't land (e.g. the input wasn't in the DOM yet).
   focusInput()
-  forceTitleRepaint(el)
 }
 
-// Chromium bug workaround: once the ripple filter's attribute animation on
-// .password-modal__card-bg (painted just before the title/subtitle in the
-// same box) stops, the title/subtitle silently stop being painted —
-// getComputedStyle reports completely normal color/opacity/rect the whole
-// time, and nothing else nearby is affected (the tip text below keeps
-// rendering fine, kept alive by the blinking caret's own repaints), so
-// this is Chromium failing to repaint that specific stale region rather
-// than anything actually wrong with the element. A real style mutation
-// (not a no-op) forces Chromium to repaint it; confirmed via Playwright
-// that this reliably brings the text back every time.
-function forceTitleRepaint(root) {
-  const block = root?.querySelector?.('.password-modal__title-block')
-  if (!block) return
-  // Deliberately never reverted: reverting the opacity back to its default
-  // re-triggers the exact same stale-paint bug this works around (verified
-  // directly — the text goes blank again the moment the inline style is
-  // cleared, even though the *computed* opacity is 1 either way). 0.999 is
-  // visually identical to 1, so leaving it set is the stable fix.
-  setTimeout(() => {
-    block.style.opacity = '0.999'
-  }, 150)
+// Both the open/close ripple filter (removed) and .password-modal__card-bg
+// as a filtered sibling of the title/subtitle turned out to cost more than
+// they were worth: Chromium would silently stop painting the title text
+// after the filter's attribute animation stopped, and no reliable, low-risk
+// way to force a repaint on every real device was found. The card's
+// background now lives directly on .password-modal__card again — plain,
+// with no separate layer — and the open/close motion is just the slide +
+// fade below, no distortion.
+
+// Tracks the on-screen keyboard on mobile via visualViewport instead of
+// relying on the viewport meta's interactive-widget=resizes-content: that
+// CSS-only mechanism isn't supported everywhere, and where it silently
+// isn't, .password-modal__card's `bottom: 0` stays pinned to the full,
+// keyboard-unaware layout viewport — the card ends up sitting behind the
+// keyboard until the browser's own "scroll focused input into view"
+// behavior yanks it up separately, which is exactly the "opens under the
+// keyboard, then jumps above it" bug this replaces. Tracking
+// visualViewport directly works regardless of that meta tag's support.
+const keyboardOffset = ref(0)
+const visibleViewportHeight = ref(null)
+
+function updateViewportMetrics() {
+  const vv = window.visualViewport
+  if (!vv) return
+  keyboardOffset.value = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
+  visibleViewportHeight.value = vv.height
 }
 
-function onLeave() {
-  stopRipple?.()
-  stopRipple = playTransitionRipple('modal-ripple-displacement', {
-    duration: 250,
-    peak: 225,
-    shape: 'attack',
-  })
+function watchKeyboard() {
+  if (!window.visualViewport) return
+  window.visualViewport.addEventListener('resize', updateViewportMetrics)
+  window.visualViewport.addEventListener('scroll', updateViewportMetrics)
+  updateViewportMetrics()
 }
 
-function onAfterLeave() {
-  stopRipple?.()
-  stopRipple = null
+function unwatchKeyboard() {
+  if (!window.visualViewport) return
+  window.visualViewport.removeEventListener('resize', updateViewportMetrics)
+  window.visualViewport.removeEventListener('scroll', updateViewportMetrics)
+  keyboardOffset.value = 0
+  visibleViewportHeight.value = null
 }
-
-// index.html's viewport meta now carries interactive-widget=resizes-
-// content, which — on browsers that support it — makes the layout
-// viewport itself (and so 100dvh, which .password-modal is sized with)
-// shrink when the on-screen keyboard opens, natively, with no JS needed.
-// An earlier version of this hand-tracked window.visualViewport instead;
-// dropped it — the sheet's own fixed-height card could end up taller than
-// the shrunk box that produced, which turned this modal's own
-// overflow-y:auto into an unwanted second scroll region on top of it.
 
 // True scroll lock: plain `body { overflow: hidden }` still lets iOS
 // Safari rubber-band-scroll the page behind a position:fixed overlay.
@@ -174,6 +156,7 @@ watch(
   (isOpen) => {
     if (isOpen) {
       lockBodyScroll()
+      watchKeyboard()
       digits.value = ''
       error.value = false
       isFocused.value = false
@@ -185,39 +168,22 @@ watch(
       nextTick(focusInput)
     } else {
       unlockBodyScroll()
+      unwatchKeyboard()
     }
   },
 )
 
 onBeforeUnmount(() => {
-  if (props.open) unlockBodyScroll()
+  if (props.open) {
+    unlockBodyScroll()
+    unwatchKeyboard()
+  }
 })
 </script>
 
 <template>
   <Teleport to="body">
-    <svg width="0" height="0" style="position: absolute" aria-hidden="true" focusable="false">
-      <filter id="modal-ripple-filter" x="-15%" y="-15%" width="130%" height="130%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.018 0.033" numOctaves="2" seed="11" result="noise" />
-        <feDisplacementMap
-          id="modal-ripple-displacement"
-          in="SourceGraphic"
-          in2="noise"
-          scale="0"
-          xChannelSelector="R"
-          yChannelSelector="G"
-        />
-      </filter>
-    </svg>
-
-    <Transition
-      name="password-modal"
-      :duration="{ enter: 450, leave: 250 }"
-      @enter="onEnter"
-      @after-enter="onAfterEnter"
-      @leave="onLeave"
-      @after-leave="onAfterLeave"
-    >
+    <Transition name="password-modal" @after-enter="onAfterEnter">
       <div v-if="open" class="password-modal" @keydown="onOverlayKeydown">
         <!-- touchend (in addition to click) on both dismiss targets below:
              the input auto-focuses on open now, so the keyboard is already
@@ -235,9 +201,15 @@ onBeforeUnmount(() => {
           @touchend.prevent="close"
         ></div>
 
-        <div class="password-modal__card" role="dialog" aria-modal="true">
-          <div class="password-modal__card-bg" aria-hidden="true"></div>
-
+        <div
+          class="password-modal__card"
+          role="dialog"
+          aria-modal="true"
+          :style="{
+            bottom: keyboardOffset + 'px',
+            maxHeight: visibleViewportHeight ? visibleViewportHeight + 'px' : undefined,
+          }"
+        >
           <div class="password-modal__topbar">
             <button
               type="button"
@@ -301,10 +273,10 @@ onBeforeUnmount(() => {
 .password-modal {
   position: fixed;
   inset: 0;
-  /* On top of inset:0's implied 100% — combined with the viewport meta's
-     interactive-widget=resizes-content (index.html), dvh is what actually
-     shrinks to stay clear of the on-screen keyboard on mobile, natively,
-     rather than the layout viewport 100% here would otherwise resolve to. */
+  /* dvh here is only a same-frame fallback for the instant before the
+     visualViewport JS above has run once — the card's own inline
+     max-height (bound to visualViewport.height) is what actually tracks
+     the on-screen keyboard, see the comment above updateViewportMetrics. */
   height: 100dvh;
   z-index: 1000;
   display: flex;
@@ -334,34 +306,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   color: #0e0e0e;
-}
-
-/* The card's own background lives here, as a real sibling element (not a
-   `background` directly on .password-modal__card, and not a ::before
-   pseudo-element either — that was tried first, but Chromium was found to
-   stop painting the title/subtitle text entirely whenever this filter was
-   present on a ::before sibling of theirs, even fully at rest with the
-   filter's scale at 0; swapping to a real element made the text render
-   correctly again), so the open/close ripple (below) can warp just this
-   plain-colored shape without dragging the real content (title, input, tip
-   text — all in .password-modal__body) or the close button through the
-   same distortion: an SVG filter warps where a layer paints, not its
-   hit-testing box, so text run through it reads as visually
-   broken/illegible while it's in motion, and the close button's tap
-   target would drift away from what's on screen the same way it did
-   when the filter briefly lived on .password-modal__card itself. */
-.password-modal__card-bg {
-  position: absolute;
-  inset: 0;
-  /* No z-index: painting order alone (this sits first among the card's
-     children, so it already paints behind the rest) already puts this
-     behind them; a negative z-index here would instead escape
-     .password-modal__card's own stacking (position:relative with no
-     z-index of its own doesn't contain one) and risk painting behind the
-     backdrop instead. */
-  border-radius: inherit;
   background: linear-gradient(to bottom, #bbd3ee, #c9dbed);
-  pointer-events: none;
 }
 
 .password-modal__topbar {
@@ -561,26 +506,9 @@ onBeforeUnmount(() => {
   will-change: transform;
 }
 
-/* Filter lives on .password-modal__card::before (the card's plain-color
-   background shape), not .password-modal__body or the card itself: an SVG
-   filter warps where a layer paints but not its actual hit-testing box —
-   putting it on the card warped the close button's tap target away from
-   what was on screen (needing a second tap once the ripple settled), and
-   putting it on body (holding the real title/input/tip text) made that
-   text warp and read as broken/illegible while in motion. The background
-   shape has neither problem — it's decorative and has no text or controls
-   of its own to distort or misalign. */
-.password-modal-enter-active .password-modal__card-bg {
-  filter: url(#modal-ripple-filter);
-}
-
 .password-modal-leave-active .password-modal__card {
   transition: transform 0.25s ease-in;
   will-change: transform;
-}
-
-.password-modal-leave-active .password-modal__card-bg {
-  filter: url(#modal-ripple-filter);
 }
 
 .password-modal-enter-from .password-modal__card,
@@ -600,13 +528,13 @@ onBeforeUnmount(() => {
   }
 
   .password-modal__card {
-    /* Fixed directly to the (keyboard-aware, via 100dvh + the viewport
-       meta's interactive-widget=resizes-content) viewport's own bottom
-       edge, sized to its own content instead of a flat 508px that left
-       empty space below short content and, combined with the keyboard
-       shrinking things further, made .password-modal__body's old
-       overflow-y:auto turn into an unwanted second scroll region stacked
-       on top of the page-scroll leak this component now also blocks. */
+    /* Fixed to the viewport's bottom edge, sized to its own content instead
+       of a flat height that left empty space below short content. `bottom`
+       and `max-height` here are just the pre-JS fallback (keyboard closed,
+       full viewport) — the inline style bound to keyboardOffset /
+       visibleViewportHeight (see the component script) overrides both the
+       moment visualViewport reports the keyboard, keeping the card glued to
+       the keyboard's own top edge with no gap and no second scroll region. */
     position: fixed;
     left: 0;
     right: 0;
