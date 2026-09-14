@@ -114,62 +114,60 @@ function onAfterLeave() {
   stopRipple = null
 }
 
-// Keeps the sheet's own box pinned to the visual viewport instead of the
-// layout one, so when the on-screen keyboard opens, the sheet shrinks to
-// sit right above it — flush against the keyboard's own top edge,
-// including whatever accessory row it draws above its keys (the QuickType/
-// predictive-text bar on iOS) — instead of leaving a gap under it. Reading
-// height alone wasn't enough for that: it left the gap this was meant to
-// close, because the sheet's own top was still pinned to 0 while only its
-// height shrank — offsetTop closes the other half of that box. iOS Safari
-// in particular resizes only the visual viewport on keyboard-open, not the
-// layout one that plain vh/100dvh units track.
-const viewportHeight = ref(null)
-const viewportTop = ref(null)
+// index.html's viewport meta now carries interactive-widget=resizes-
+// content, which — on browsers that support it — makes the layout
+// viewport itself (and so 100dvh, which .password-modal is sized with)
+// shrink when the on-screen keyboard opens, natively, with no JS needed.
+// An earlier version of this hand-tracked window.visualViewport instead;
+// dropped it — the sheet's own fixed-height card could end up taller than
+// the shrunk box that produced, which turned this modal's own
+// overflow-y:auto into an unwanted second scroll region on top of it.
 
-function updateViewportRect() {
-  const vv = window.visualViewport
-  if (!vv) return
-  viewportHeight.value = `${vv.height}px`
-  viewportTop.value = `${vv.offsetTop}px`
+// True scroll lock: plain `body { overflow: hidden }` still lets iOS
+// Safari rubber-band-scroll the page behind a position:fixed overlay.
+// Pinning the body itself in place (and restoring its scroll position on
+// close) is the standard workaround.
+let lockedScrollY = 0
+
+function lockBodyScroll() {
+  lockedScrollY = window.scrollY
+  document.body.style.position = 'fixed'
+  document.body.style.top = `-${lockedScrollY}px`
+  document.body.style.left = '0'
+  document.body.style.right = '0'
 }
 
-function watchViewport() {
-  if (!window.visualViewport) return
-  updateViewportRect()
-  window.visualViewport.addEventListener('resize', updateViewportRect)
-  window.visualViewport.addEventListener('scroll', updateViewportRect)
-}
-
-function unwatchViewport() {
-  window.visualViewport?.removeEventListener('resize', updateViewportRect)
-  window.visualViewport?.removeEventListener('scroll', updateViewportRect)
-  viewportHeight.value = null
-  viewportTop.value = null
+function unlockBodyScroll() {
+  document.body.style.position = ''
+  document.body.style.top = ''
+  document.body.style.left = ''
+  document.body.style.right = ''
+  window.scrollTo(0, lockedScrollY)
 }
 
 watch(
   () => props.open,
   (isOpen) => {
-    document.body.style.overflow = isOpen ? 'hidden' : ''
     if (isOpen) {
+      lockBodyScroll()
       digits.value = ''
       error.value = false
       isFocused.value = false
       clearDebounce()
-      watchViewport()
       // Focusing synchronously off the open toggle (via nextTick, still
       // inside the same gesture chain as whatever click set `open` true)
       // is what actually raises the on-screen keyboard on mobile — see
       // onAfterEnter's comment for why waiting for the transition doesn't.
       nextTick(focusInput)
     } else {
-      unwatchViewport()
+      unlockBodyScroll()
     }
   },
 )
 
-onBeforeUnmount(unwatchViewport)
+onBeforeUnmount(() => {
+  if (props.open) unlockBodyScroll()
+})
 </script>
 
 <template>
@@ -196,12 +194,7 @@ onBeforeUnmount(unwatchViewport)
       @leave="onLeave"
       @after-leave="onAfterLeave"
     >
-      <div
-        v-if="open"
-        class="password-modal"
-        :style="viewportHeight ? { height: viewportHeight, top: viewportTop } : null"
-        @keydown="onOverlayKeydown"
-      >
+      <div v-if="open" class="password-modal" @keydown="onOverlayKeydown">
         <!-- touchend (in addition to click) on both dismiss targets below:
              the input auto-focuses on open now, so the keyboard is already
              up by the time someone taps to close — on iOS Safari, a tap
@@ -282,6 +275,11 @@ onBeforeUnmount(unwatchViewport)
 .password-modal {
   position: fixed;
   inset: 0;
+  /* On top of inset:0's implied 100% — combined with the viewport meta's
+     interactive-widget=resizes-content (index.html), dvh is what actually
+     shrinks to stay clear of the on-screen keyboard on mobile, natively,
+     rather than the layout viewport 100% here would otherwise resolve to. */
+  height: 100dvh;
   z-index: 1000;
   display: flex;
   justify-content: center;
@@ -540,6 +538,13 @@ onBeforeUnmount(unwatchViewport)
 @media (max-width: 767px) {
   .password-modal {
     align-items: flex-end;
+    /* The sheet's content comfortably fits its own fixed height (below) —
+       no internal scrolling needed, and .password-modal__body's own
+       overflow-y:auto (removed below, mobile-only) combined with this one
+       meant two nested scroll regions could both engage on top of each
+       other whenever the keyboard shrank the available height, which read
+       as the whole thing being broken rather than just cramped. */
+    overflow-y: visible;
   }
 
   .password-modal__card {
@@ -563,6 +568,7 @@ onBeforeUnmount(unwatchViewport)
   }
 
   .password-modal__body {
+    overflow-y: visible;
     padding: 12px 20px 52px;
   }
 

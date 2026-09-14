@@ -230,23 +230,13 @@ const linkRippleTelegram = createHoverRipple(
            relative width placed inside it doesn't render at its true size
            — it scales (and shifts, since the origin isn't centered) with
            everything else.
-           Two nested boxes matching the Figma frame's own numbers (node
-           1235:7095): Figma's 390px frame holds a 512px-wide banner
-           window (already 31% wider than the frame, bleeding off both
-           edges) containing the image at top:-154.75% height:424.31% of
-           that window. .contact__mobile-banner-viewport is the visible,
-           full-bleed screen width (what Figma's 390 frame plays here);
-           .contact__mobile-banner-crop reproduces the 512:390 oversize
-           ratio against it (rather than hard-coding 512px) so the same
-           bleed-relative-to-screen proportions hold at any width; the
-           image's crop percentages (see its own comment) are tuned
-           independently of Figma's, to cut the cloud off before its own
-           natural lower edge instead of showing the whole shape. -->
+           Positioned to overlap the door's own bottom edge (its window
+           starts well above the door's bottom, not right at it) — the
+           cloud is meant to sit in front of the door, covering part of the
+           glass, not butt up against it as a separate layer underneath. -->
       <div class="contact__mobile-banner-viewport">
-        <div class="contact__mobile-banner-crop">
-          <div class="contact__mobile-banner">
-            <img :src="bannerImg" alt="" loading="lazy" style="filter: url(#contact-cloud-filter)" />
-          </div>
+        <div class="contact__mobile-banner">
+          <img :src="bannerImg" alt="" loading="lazy" style="filter: url(#contact-cloud-filter)" />
         </div>
       </div>
     </div>
@@ -359,13 +349,18 @@ const linkRippleTelegram = createHoverRipple(
 }
 
 .contact__banner img {
+  /* No background-color here (unlike other large photos on the site): a
+     background paints behind an img's own transparent pixels too, not
+     just while it's loading — this cloud photo is mostly transparent sky
+     around the cloud shape, sitting in front of the door on purpose, and
+     an opaque backing there was blocking the door from showing through
+     exactly where it should. */
   position: absolute;
   left: -20px;
   top: -560px;
   width: 1064px;
   height: 1536px;
   display: block;
-  background: #0e0e0e;
 }
 
 .contact__mobile {
@@ -480,40 +475,24 @@ const linkRippleTelegram = createHoverRipple(
   .contact__mobile-banner-viewport {
     /* Bleeds past the door's own width (and the mobile-container's side
        gutters) to the true screen edges — the clouds read as a full-width
-       backdrop the door sits in front of, not something boxed in by it.
-       This is the visible window; .contact__mobile-banner-crop below is
-       deliberately wider than it (see that rule) and gets clipped here.
-       No visible bottom edge to the cloud on purpose — the crop below
-       stops well short of the cloud's own natural (shadowed, tapering)
-       lower edge, so what's on screen always reads as "the top of a much
-       bigger cloud, cut off by the screen" rather than a complete shape
-       sitting inside the frame. */
+       backdrop, and its top edge (below) sits well above the door's own
+       bottom edge on purpose, so the cloud overlaps and covers part of the
+       glass instead of just butting up against the door as a separate
+       layer underneath it. */
     position: absolute;
     left: 50%;
     bottom: 0;
     /* True 100vw, not capped to the mobile-container's own 480px max-width
        — "full width of the screen" means the actual screen here, not just
        the content column (the door/text above stay in that column; this
-       is a full-bleed backdrop behind it). */
+       is a full-bleed backdrop behind it). Height generous enough (45% of
+       width) to clearly overlap the door, which is roughly 1.28x as tall
+       as this stage is wide. */
     width: 100vw;
-    height: calc(100vw / 3);
+    height: calc(100vw * 0.45);
     transform: translateX(-50%);
     overflow: hidden;
     pointer-events: none;
-  }
-
-  .contact__mobile-banner-crop {
-    /* Wider than the viewport above (35%, bleeding off both edges) so the
-       cloud's own tapered left/right edges (it's a single puffy shape on a
-       plain background, not an edge-to-edge texture) never come into view
-       — only its solid center, stretched to fill the full screen width. */
-    position: absolute;
-    left: 50%;
-    top: 0;
-    width: 135%;
-    height: 100%;
-    transform: translateX(-50%);
-    overflow: hidden;
   }
 
   .contact__mobile-banner {
@@ -523,20 +502,30 @@ const linkRippleTelegram = createHoverRipple(
   }
 
   .contact__mobile-banner img {
-    /* Crops to a band starting just above the cloud's own top (~37% down
-       the source image) and ending well before its shadowed base (~54%,
-       short of where it starts fading out around 56-60%) — found by
-       scanning the source photo's own alpha channel for where the cloud
-       itself actually is, not carried over from Figma's own crop for this
-       node (which runs past the cloud's natural end, showing the whole
-       shape instead of cutting it off). */
+    /* object-fit: cover guarantees the window is always fully covered by
+       solid cloud, at any width or window height, with no manual crop-
+       percentage math that can leave gaps — a shorter, hand-tuned version
+       of this left the top of the window (where it should have overlapped
+       the door) nearly empty, reading as two separate, non-overlapping
+       layers instead of the cloud sitting in front of the door. Slight
+       (10%) oversize keeps the cloud's own tapered left/right edges (it's
+       a single puffy shape on a plain background, not an edge-to-edge
+       texture) from thinning out right at the screen edges; object-
+       position targets the source photo's own widest, most solid band
+       (~50% down it, found by scanning its alpha channel). No background-
+       color (unlike other large photos on the site): it paints behind an
+       img's own transparent pixels too, not just while loading, and this
+       photo is mostly transparent sky around the cloud shape, sitting in
+       front of the door on purpose — an opaque backing was blocking the
+       door from showing through exactly where it should. */
     position: absolute;
-    left: 0;
-    top: -224.775%;
-    width: 100%;
-    height: 607.5%;
+    left: -5%;
+    top: 0;
+    width: 110%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 50%;
     display: block;
-    background: #0e0e0e;
   }
 }
 </style>
