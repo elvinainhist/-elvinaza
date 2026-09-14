@@ -564,18 +564,21 @@ onBeforeUnmount(() => {
   }
 
   .password-modal__card {
-    /* Plain, unadjusted `bottom: 0` on purpose — see the script comment
-       above lockBodyScroll for why this replaced trying to compute a
-       keyboard-aware offset in JS. Sized to its own content instead of a
-       flat height that left empty space below short content; content here
-       (~416px, see the Figma reference) is short enough to always clear a
-       real keyboard on its own. */
+    /* Always spans from a fixed 64px below the screen's top edge down to
+       its true bottom edge — not sized to content. `bottom: 0` (not a
+       keyboard-aware offset — see the script comment above
+       lockBodyScroll) means that span always reaches the real screen
+       bottom regardless of the keyboard, so whatever portion of it falls
+       behind the keyboard just sits there covered, same reasoning as
+       before, now driven by a fixed span instead of content height
+       happening to be short enough. */
     position: fixed;
     left: 0;
     right: 0;
+    top: 64px;
     bottom: 0;
-    max-height: 100dvh;
     height: auto;
+    max-height: none;
     min-height: 0;
     margin-top: 0;
     border-radius: 24px 24px 0 0;
