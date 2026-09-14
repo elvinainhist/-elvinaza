@@ -68,13 +68,19 @@ body {
   box-sizing: border-box;
 }
 
-/* Ripples real photos in proportion to scroll speed — driven by src/scrollRipple.js */
+/* Ripples real photos in proportion to scroll speed — driven by
+   src/scrollRipple.js. Off by default and only turned on (via the
+   scroll-ripple-active class scrollRipple.js toggles on <body>) while
+   there's real scroll velocity to show: a settled filter left permanently
+   applied, even at scale 0, still costs a ~20x page-wide
+   requestAnimationFrame penalty in Safari/WebKit (see the comment in
+   hoverRipple.js) — this class only exists at all for elements with no
+   more specific per-component override (Contact's banner, Projects' cards)
+   already doing the same thing directly. */
 .scroll-ripple {
-  filter: url(#scroll-ripple-filter);
+  filter: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .scroll-ripple {
-    filter: none;
-  }
+body.scroll-ripple-active .scroll-ripple {
+  filter: url(#scroll-ripple-filter);
 }

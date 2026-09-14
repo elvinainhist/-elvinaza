@@ -79,7 +79,7 @@ const navRippleCv = createHoverRipple('nav-ripple-displacement-cv', 'nav-ripple-
               target="_blank"
               rel="noopener"
               class="site-header__link"
-              style="filter: url(#nav-ripple-filter-linkedin)"
+              :style="{ filter: navRippleLinkedin.active.value ? 'url(#nav-ripple-filter-linkedin)' : 'none' }"
               @mouseenter="navRippleLinkedin.enter"
               @mouseleave="navRippleLinkedin.leave"
               @mousemove="navRippleLinkedin.move($event)"
@@ -90,7 +90,7 @@ const navRippleCv = createHoverRipple('nav-ripple-displacement-cv', 'nav-ripple-
             <a
               href="mailto:elvinainhist@gmail.com"
               class="site-header__link"
-              style="filter: url(#nav-ripple-filter-email)"
+              :style="{ filter: navRippleEmail.active.value ? 'url(#nav-ripple-filter-email)' : 'none' }"
               @mouseenter="navRippleEmail.enter"
               @mouseleave="navRippleEmail.leave"
               @mousemove="navRippleEmail.move($event)"
@@ -103,7 +103,7 @@ const navRippleCv = createHoverRipple('nav-ripple-displacement-cv', 'nav-ripple-
               target="_blank"
               rel="noopener"
               class="site-header__link site-header__link--alt"
-              style="filter: url(#nav-ripple-filter-telegram)"
+              :style="{ filter: navRippleTelegram.active.value ? 'url(#nav-ripple-filter-telegram)' : 'none' }"
               @mouseenter="navRippleTelegram.enter"
               @mouseleave="navRippleTelegram.leave"
               @mousemove="navRippleTelegram.move($event)"
@@ -121,7 +121,10 @@ const navRippleCv = createHoverRipple('nav-ripple-displacement-cv', 'nav-ripple-
           @mouseleave="navRippleCv.leave"
           @mousemove="navRippleCv.move($event)"
         >
-          <span class="site-header__cv-content" style="filter: url(#nav-ripple-filter-cv)">
+          <span
+            class="site-header__cv-content"
+            :style="{ filter: navRippleCv.active.value ? 'url(#nav-ripple-filter-cv)' : 'none' }"
+          >
             <img :src="exportIcon" class="site-header__cv-icon" alt="" />
             Скачать CV
           </span>
@@ -162,7 +165,7 @@ const navRippleCv = createHoverRipple('nav-ripple-displacement-cv', 'nav-ripple-
               target="_blank"
               rel="noopener"
               class="site-header__link"
-              style="filter: url(#nav-ripple-filter-linkedin)"
+              :style="{ filter: navRippleLinkedin.active.value ? 'url(#nav-ripple-filter-linkedin)' : 'none' }"
               @mouseenter="navRippleLinkedin.enter"
               @mouseleave="navRippleLinkedin.leave"
               @mousemove="navRippleLinkedin.move($event)"
@@ -173,7 +176,7 @@ const navRippleCv = createHoverRipple('nav-ripple-displacement-cv', 'nav-ripple-
             <a
               href="mailto:elvinainhist@gmail.com"
               class="site-header__link"
-              style="filter: url(#nav-ripple-filter-email)"
+              :style="{ filter: navRippleEmail.active.value ? 'url(#nav-ripple-filter-email)' : 'none' }"
               @mouseenter="navRippleEmail.enter"
               @mouseleave="navRippleEmail.leave"
               @mousemove="navRippleEmail.move($event)"
@@ -186,7 +189,7 @@ const navRippleCv = createHoverRipple('nav-ripple-displacement-cv', 'nav-ripple-
               target="_blank"
               rel="noopener"
               class="site-header__link site-header__link--alt"
-              style="filter: url(#nav-ripple-filter-telegram)"
+              :style="{ filter: navRippleTelegram.active.value ? 'url(#nav-ripple-filter-telegram)' : 'none' }"
               @mouseenter="navRippleTelegram.enter"
               @mouseleave="navRippleTelegram.leave"
               @mousemove="navRippleTelegram.move($event)"
@@ -203,7 +206,10 @@ const navRippleCv = createHoverRipple('nav-ripple-displacement-cv', 'nav-ripple-
           @mouseleave="navRippleCv.leave"
           @mousemove="navRippleCv.move($event)"
         >
-          <span class="site-header__cv-content" style="filter: url(#nav-ripple-filter-cv)">
+          <span
+            class="site-header__cv-content"
+            :style="{ filter: navRippleCv.active.value ? 'url(#nav-ripple-filter-cv)' : 'none' }"
+          >
             <img :src="exportIcon" class="site-header__cv-icon" alt="" />
             Скачать CV
           </span>

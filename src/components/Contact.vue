@@ -1,7 +1,9 @@
 <script setup>
+import { computed } from 'vue'
 import bannerImg from '../assets/contact/banner.webp'
 import { createHoverRipple } from '../hoverRipple'
 import { createDissolveReveal } from '../dissolveReveal'
+import { scrollRippleActive } from '../scrollRipple'
 
 // Shapes the cloud's warp (below) so it grows/shrinks from organic patches
 // on hover-enter/leave instead of covering the whole image evenly.
@@ -26,6 +28,34 @@ const linkRippleTelegram = createHoverRipple(
   ['contact-link-displacement-telegram', 'contact-knob-displacement', 'contact-door-displacement'],
   ['contact-link-offset-telegram', 'contact-knob-offset', 'contact-door-offset'],
   22,
+)
+
+// The knob and door displacement are each driven by whichever of the three
+// link ripples is currently active (see the shared ids above) — so their
+// own `filter` needs to stay applied as long as any one of them is, not
+// just whichever happened to be hovered last.
+const linksActive = computed(
+  () => linkRippleLinkedin.active.value || linkRippleEmail.active.value || linkRippleTelegram.active.value,
+)
+
+// Joins whichever of a set of (condition, filter-url) pairs are currently
+// active into one `filter` value, or 'none' if none are — for the handful
+// of elements here that stack two independently-active filters at once
+// (the knob and desktop banner both combine the shared scroll-ripple with
+// their own hover-driven one).
+function combineFilters(...pairs) {
+  const parts = pairs.filter(([active]) => active).map(([, url]) => url)
+  return parts.length ? parts.join(' ') : 'none'
+}
+
+const knobFilter = computed(() =>
+  combineFilters([scrollRippleActive.value, 'url(#scroll-ripple-filter)'], [linksActive.value, 'url(#contact-knob-filter)']),
+)
+const doorFilter = computed(() =>
+  combineFilters([scrollRippleActive.value, 'url(#scroll-ripple-filter)'], [linksActive.value, 'url(#contact-door-filter)']),
+)
+const bannerFilter = computed(() =>
+  combineFilters([scrollRippleActive.value, 'url(#scroll-ripple-filter)'], [cloudWarp.active.value, 'url(#contact-cloud-filter)']),
 )
 </script>
 
@@ -124,14 +154,14 @@ const linkRippleTelegram = createHoverRipple(
 
     <div class="contact__frame">
       <div class="contact__stage" v-scale-stage="1280">
-        <div class="contact__door reveal" v-reveal>
+        <div class="contact__door reveal" v-reveal :style="{ '--door-filter': doorFilter }">
           <div class="contact__glass">
             <a
               href="https://www.linkedin.com/in/elvina-zakharova-25a563173?utm_source=share_via&utm_content=profile&utm_medium=member_ios"
               target="_blank"
               rel="noopener"
               class="contact__link"
-              style="filter: url(#contact-link-filter-linkedin)"
+              :style="{ filter: linkRippleLinkedin.active.value ? 'url(#contact-link-filter-linkedin)' : 'none' }"
               @mouseenter="linkRippleLinkedin.enter(); cloudWarp.enter(); cloudReveal.enter()"
               @mouseleave="linkRippleLinkedin.leave(); cloudWarp.leave(); cloudReveal.leave()"
               @mousemove="linkRippleLinkedin.move($event)"
@@ -140,7 +170,7 @@ const linkRippleTelegram = createHoverRipple(
             <a
               href="mailto:elvinainhist@gmail.com"
               class="contact__link"
-              style="filter: url(#contact-link-filter-email)"
+              :style="{ filter: linkRippleEmail.active.value ? 'url(#contact-link-filter-email)' : 'none' }"
               @mouseenter="linkRippleEmail.enter(); cloudWarp.enter(); cloudReveal.enter()"
               @mouseleave="linkRippleEmail.leave(); cloudWarp.leave(); cloudReveal.leave()"
               @mousemove="linkRippleEmail.move($event)"
@@ -151,21 +181,18 @@ const linkRippleTelegram = createHoverRipple(
               target="_blank"
               rel="noopener"
               class="contact__link"
-              style="filter: url(#contact-link-filter-telegram)"
+              :style="{ filter: linkRippleTelegram.active.value ? 'url(#contact-link-filter-telegram)' : 'none' }"
               @mouseenter="linkRippleTelegram.enter(); cloudWarp.enter(); cloudReveal.enter()"
               @mouseleave="linkRippleTelegram.leave(); cloudWarp.leave(); cloudReveal.leave()"
               @mousemove="linkRippleTelegram.move($event)"
               >Telegram</a
             >
-            <span
-              class="contact__knob"
-              style="filter: url(#scroll-ripple-filter) url(#contact-knob-filter)"
-            ></span>
+            <span class="contact__knob" :style="{ filter: knobFilter }"></span>
           </div>
         </div>
 
         <div class="contact__banner reveal" v-reveal>
-          <img :src="bannerImg" alt="" loading="lazy" class="scroll-ripple" style="filter: url(#scroll-ripple-filter) url(#contact-cloud-filter)" />
+          <img :src="bannerImg" alt="" loading="lazy" class="scroll-ripple" :style="{ filter: bannerFilter }" />
         </div>
       </div>
     </div>
@@ -173,7 +200,7 @@ const linkRippleTelegram = createHoverRipple(
     <div class="contact__mobile mobile-container">
       <div class="contact__mobile-frame">
         <div class="contact__mobile-stage" v-scale-stage="350">
-          <div class="contact__mobile-door">
+          <div class="contact__mobile-door" :style="{ '--door-filter': doorFilter }">
             <div class="contact__mobile-glass">
               <div class="contact__mobile-links">
                 <a
@@ -181,7 +208,7 @@ const linkRippleTelegram = createHoverRipple(
                   target="_blank"
                   rel="noopener"
                   class="contact__mobile-link"
-                  style="filter: url(#contact-link-filter-linkedin)"
+                  :style="{ filter: linkRippleLinkedin.active.value ? 'url(#contact-link-filter-linkedin)' : 'none' }"
                   @mouseenter="linkRippleLinkedin.enter(); cloudWarp.enter(); cloudReveal.enter()"
                   @mouseleave="linkRippleLinkedin.leave(); cloudWarp.leave(); cloudReveal.leave()"
                   @mousemove="linkRippleLinkedin.move($event)"
@@ -190,7 +217,7 @@ const linkRippleTelegram = createHoverRipple(
                 <a
                   href="mailto:elvinainhist@gmail.com"
                   class="contact__mobile-link"
-                  style="filter: url(#contact-link-filter-email)"
+                  :style="{ filter: linkRippleEmail.active.value ? 'url(#contact-link-filter-email)' : 'none' }"
                   @mouseenter="linkRippleEmail.enter(); cloudWarp.enter(); cloudReveal.enter()"
                   @mouseleave="linkRippleEmail.leave(); cloudWarp.leave(); cloudReveal.leave()"
                   @mousemove="linkRippleEmail.move($event)"
@@ -201,14 +228,17 @@ const linkRippleTelegram = createHoverRipple(
                   target="_blank"
                   rel="noopener"
                   class="contact__mobile-link"
-                  style="filter: url(#contact-link-filter-telegram)"
+                  :style="{ filter: linkRippleTelegram.active.value ? 'url(#contact-link-filter-telegram)' : 'none' }"
                   @mouseenter="linkRippleTelegram.enter(); cloudWarp.enter(); cloudReveal.enter()"
                   @mouseleave="linkRippleTelegram.leave(); cloudWarp.leave(); cloudReveal.leave()"
                   @mousemove="linkRippleTelegram.move($event)"
                   >Telegram</a
                 >
               </div>
-              <span class="contact__mobile-knob" style="filter: url(#contact-knob-filter)"></span>
+              <span
+                class="contact__mobile-knob"
+                :style="{ filter: linksActive ? 'url(#contact-knob-filter)' : 'none' }"
+              ></span>
             </div>
           </div>
 
@@ -236,7 +266,12 @@ const linkRippleTelegram = createHoverRipple(
            glass, not butt up against it as a separate layer underneath. -->
       <div class="contact__mobile-banner-viewport">
         <div class="contact__mobile-banner">
-          <img :src="bannerImg" alt="" loading="lazy" style="filter: url(#contact-cloud-filter)" />
+          <img
+            :src="bannerImg"
+            alt=""
+            loading="lazy"
+            :style="{ filter: cloudWarp.active.value ? 'url(#contact-cloud-filter)' : 'none' }"
+          />
         </div>
       </div>
     </div>
@@ -282,12 +317,16 @@ const linkRippleTelegram = createHoverRipple(
 .contact__door::before {
   /* The frame line lives on its own box so it can warp independently of
      the glass/links/knob inside — filtering .contact__door itself would
-     drag its whole subtree through the same displacement. */
+     drag its whole subtree through the same displacement.
+     filter comes from --door-filter (set inline on .contact__door, see
+     doorFilter in the script) rather than being applied here directly:
+     a pseudo-element can't be targeted by Vue's :style, but it does
+     inherit a custom property set on its originating element. */
   content: '';
   position: absolute;
   inset: 0;
   border: 1px solid #5b92df;
-  filter: url(#scroll-ripple-filter) url(#contact-door-filter);
+  filter: var(--door-filter, none);
   pointer-events: none;
 }
 
@@ -430,7 +469,11 @@ const linkRippleTelegram = createHoverRipple(
        bottom border peeks out under the cloud instead of "closing" it. */
     border: 1px solid #5b92df;
     border-bottom: none;
-    filter: url(#contact-door-filter);
+    /* --door-filter set inline on .contact__mobile-door — see the desktop
+       .contact__door::before comment; scrollRippleActive (part of that
+       same computed) is always false on mobile anyway, so this only ever
+       reflects the link-hover state here. */
+    filter: var(--door-filter, none);
     pointer-events: none;
   }
 

@@ -132,13 +132,13 @@ onBeforeUnmount(() => {
             :src="portraitImg"
             alt="Эльвина Захарова"
             class="hero__photo-img hero__photo-img--main"
-            style="filter: url(#hero-flip-filter)"
+            :style="{ filter: photoWarp.active.value ? 'url(#hero-flip-filter)' : 'none' }"
           />
           <img
             :src="childhoodImg"
             alt="Эльвина в детстве"
             class="hero__photo-img hero__photo-img--alt"
-            style="filter: url(#hero-flip-filter)"
+            :style="{ filter: photoWarp.active.value ? 'url(#hero-flip-filter)' : 'none' }"
           />
         </div>
 
@@ -181,13 +181,13 @@ onBeforeUnmount(() => {
               :src="portraitImg"
               alt="Эльвина Захарова"
               class="hero__photo-img hero__photo-img--main"
-              style="filter: url(#hero-flip-filter)"
+              :style="{ filter: photoWarp.active.value ? 'url(#hero-flip-filter)' : 'none' }"
             />
             <img
               :src="childhoodImg"
               alt="Эльвина в детстве"
               class="hero__photo-img hero__photo-img--alt"
-              style="filter: url(#hero-flip-filter)"
+              :style="{ filter: photoWarp.active.value ? 'url(#hero-flip-filter)' : 'none' }"
             />
           </div>
 

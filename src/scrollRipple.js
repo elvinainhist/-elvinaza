@@ -1,3 +1,16 @@
+import { ref } from 'vue'
+
+// Whether the shared scroll-ripple filter is currently doing anything —
+// components bind their `.scroll-ripple` elements' `filter` CSS property to
+// this instead of leaving `filter: url(#scroll-ripple-filter)` on
+// permanently (see the comment in hoverRipple.js for why that matters: it's
+// a ~20x page-wide requestAnimationFrame penalty in Safari/WebKit,
+// regardless of whether the filter is actually animating). Stays false for
+// this module's whole lifetime on mobile, where the loop below never even
+// starts — so this alone also removes the filter there, on top of the
+// velocity loop already not running.
+export const scrollRippleActive = ref(false)
+
 // Drives the shared SVG displacement filter (#scroll-ripple-filter) so photos
 // ripple in proportion to scroll speed, then ease back to flat when scrolling stops.
 export function initScrollRipple() {
@@ -38,6 +51,12 @@ export function initScrollRipple() {
     const scaleAttr = currentScale > 0.05 ? currentScale.toFixed(2) : '0'
     displacement.setAttribute('scale', scaleAttr)
     projectDisplacement?.setAttribute('scale', scaleAttr)
+    scrollRippleActive.value = scaleAttr !== '0'
+    // Elements that just wear the plain `.scroll-ripple` class (no
+    // per-component override, see style.css) read this class on <body>
+    // instead of scrollRippleActive directly — cheaper than a Vue watcher
+    // for something already being set once per frame right here.
+    document.body.classList.toggle('scroll-ripple-active', scaleAttr !== '0')
 
     // Stops once fully settled (no residual scale, no fresh velocity)
     // instead of looping forever — this used to run unconditionally at

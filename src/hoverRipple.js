@@ -1,7 +1,23 @@
+import { ref } from 'vue'
+
 // Drives one or more SVG feDisplacementMap elements toward a target ripple
 // intensity on hover/leave, easing smoothly in both directions. Also, if
 // offset ids are given, shifts the underlying turbulence noise to track the
 // cursor position within the hovered element.
+//
+// `active` (returned below) tracks whether the scale is currently
+// meaningfully non-zero — callers bind their element's `filter` CSS
+// property to it instead of leaving `filter: url(#...)` on permanently.
+// This matters a lot more than it looks: Safari/WebKit throttles
+// requestAnimationFrame page-wide by roughly 20x (confirmed by measuring
+// raw rAF cadence with and without it) whenever ANY element has a `filter`
+// referencing an SVG filter applied, REGARDLESS of whether that filter is
+// actively animating — a fully-settled scale="0" still pays the cost. On
+// Chromium there's no such penalty, which is why this went unnoticed for
+// so long: every real device this site was tested on is WebKit-based
+// (Safari, and every other iOS browser, since iOS requires them all to be)
+// while all the automated verification during development ran on
+// Chromium.
 export function createHoverRipple(displacementIds, offsetIds = [], intensity = 38) {
   const ids = Array.isArray(displacementIds) ? displacementIds : [displacementIds]
   const offsets = Array.isArray(offsetIds) ? offsetIds : [offsetIds]
@@ -10,6 +26,7 @@ export function createHoverRipple(displacementIds, offsetIds = [], intensity = 3
   let target = 0
   let current = 0
   let rafId = null
+  const active = ref(false)
 
   function loop() {
     current += (target - current) * easingRate
@@ -17,6 +34,7 @@ export function createHoverRipple(displacementIds, offsetIds = [], intensity = 3
     ids.forEach((id) => {
       document.getElementById(id)?.setAttribute('scale', value)
     })
+    active.value = value !== '0'
 
     if (Math.abs(target - current) > 0.05) {
       rafId = requestAnimationFrame(loop)
@@ -30,8 +48,10 @@ export function createHoverRipple(displacementIds, offsetIds = [], intensity = 3
   }
 
   return {
+    active,
     enter: () => {
       target = intensity
+      active.value = true
       start()
     },
     leave: () => {

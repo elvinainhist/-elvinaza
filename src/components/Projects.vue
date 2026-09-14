@@ -10,9 +10,10 @@ import frame1Icon from '../assets/projects/frame1-icon.svg'
 import mobileCard1 from '../assets/projects/mobile-card1.jpg'
 import mobileCard2 from '../assets/projects/mobile-card2.jpg'
 import mobileCard3 from '../assets/projects/mobile-card3.jpg'
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { createHoverRipple, attachLoadRipple } from '../hoverRipple'
 import { createDissolveReveal } from '../dissolveReveal'
+import { scrollRippleActive } from '../scrollRipple'
 
 const rulerMarkers = [20, 101, 181, 261, 341]
 const rulerLines = [81, 161, 241, 321]
@@ -23,6 +24,25 @@ const emit = defineEmits(['open-case'])
 const cardRipple1 = createHoverRipple('project-ripple-displacement-1', 'project-ripple-offset-1', 65)
 const cardRipple2 = createHoverRipple('project-ripple-displacement-2', 'project-ripple-offset-2', 65)
 const cardRipple3 = createHoverRipple('project-ripple-displacement-3', 'project-ripple-offset-3', 65)
+
+// Desktop cards stack the shared scroll-ripple filter with their own
+// hover-driven one; each part only joins the `filter` value while its own
+// condition is active (see the comment in hoverRipple.js for why this
+// matters — a settled filter left permanently applied still costs a
+// ~20x requestAnimationFrame penalty page-wide in Safari/WebKit).
+function combineFilters(...pairs) {
+  const parts = pairs.filter(([active]) => active).map(([, url]) => url)
+  return parts.length ? parts.join(' ') : 'none'
+}
+const cardFilter1 = computed(() =>
+  combineFilters([scrollRippleActive.value, 'url(#project-scroll-ripple-filter)'], [cardRipple1.active.value, 'url(#project-ripple-filter-1)']),
+)
+const cardFilter2 = computed(() =>
+  combineFilters([scrollRippleActive.value, 'url(#project-scroll-ripple-filter)'], [cardRipple2.active.value, 'url(#project-ripple-filter-2)']),
+)
+const cardFilter3 = computed(() =>
+  combineFilters([scrollRippleActive.value, 'url(#project-scroll-ripple-filter)'], [cardRipple3.active.value, 'url(#project-ripple-filter-3)']),
+)
 
 // Shapes the warp above so it grows/shrinks from organic patches on
 // hover-enter/leave instead of covering the whole image evenly.
@@ -174,7 +194,7 @@ onMounted(() => {
                 :src="card1Bg"
                 loading="lazy"
                 class="project__bg scroll-ripple"
-                style="filter: url(#project-scroll-ripple-filter) url(#project-ripple-filter-1)"
+                :style="{ filter: cardFilter1 }"
                 alt=""
               />
             </div>
@@ -232,7 +252,7 @@ onMounted(() => {
                 :src="card2Bg"
                 loading="lazy"
                 class="project__bg scroll-ripple"
-                style="filter: url(#project-scroll-ripple-filter) url(#project-ripple-filter-2)"
+                :style="{ filter: cardFilter2 }"
                 alt=""
               />
               <div class="project__guides">
@@ -287,7 +307,7 @@ onMounted(() => {
                 :src="card3Bg"
                 loading="lazy"
                 class="project__bg scroll-ripple"
-                style="filter: url(#project-scroll-ripple-filter) url(#project-ripple-filter-3)"
+                :style="{ filter: cardFilter3 }"
                 alt=""
               />
               <img :src="asterisk3" class="asterisk asterisk--3" alt="" />
@@ -345,7 +365,7 @@ onMounted(() => {
             :src="mobileCard1"
             loading="lazy"
             alt=""
-            style="filter: url(#project-ripple-filter-1)"
+            :style="{ filter: cardRipple1.active.value ? 'url(#project-ripple-filter-1)' : 'none' }"
           />
         </div>
         <div class="project-mobile__text">
@@ -368,7 +388,7 @@ onMounted(() => {
             :src="mobileCard2"
             loading="lazy"
             alt=""
-            style="filter: url(#project-ripple-filter-2)"
+            :style="{ filter: cardRipple2.active.value ? 'url(#project-ripple-filter-2)' : 'none' }"
           />
         </div>
         <div class="project-mobile__text">
@@ -389,7 +409,7 @@ onMounted(() => {
             :src="mobileCard3"
             loading="lazy"
             alt=""
-            style="filter: url(#project-ripple-filter-3)"
+            :style="{ filter: cardRipple3.active.value ? 'url(#project-ripple-filter-3)' : 'none' }"
           />
         </div>
         <div class="project-mobile__text">
