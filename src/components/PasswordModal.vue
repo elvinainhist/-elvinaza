@@ -183,7 +183,11 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
-    <Transition name="password-modal" @after-enter="onAfterEnter">
+    <Transition
+      name="password-modal"
+      :duration="{ enter: 450, leave: 250 }"
+      @after-enter="onAfterEnter"
+    >
       <div v-if="open" class="password-modal" @keydown="onOverlayKeydown">
         <!-- touchend (in addition to click) on both dismiss targets below:
              the input auto-focuses on open now, so the keyboard is already
@@ -516,6 +520,62 @@ onBeforeUnmount(() => {
   transform: translateY(100%);
 }
 
+/* The "melt" back, minus the part that kept breaking: this used to be an
+   SVG displacement filter on a background layer behind the title, and
+   Chromium would silently stop painting the title/subtitle once that
+   filter's JS-driven attribute animation stopped — confirmed repeatedly,
+   including a repaint workaround that held up in testing here but still
+   failed on a real device. A border-radius wobble can't ever touch text
+   painting (it only reshapes the card's own corners), so it gets the same
+   "edges warping as it arrives" read with none of that risk. Desktop
+   only: the mobile sheet needs to feel instant (see its own comments),
+   not put through a multi-step corner wobble.
+   Values ping-pong across three keyframes rather than following a single
+   settle so the corners still read as sloshing side to side, not just
+   easing straight back to their resting radius. */
+@media (min-width: 768px) {
+  .password-modal-enter-active .password-modal__card {
+    transition: none;
+    animation: password-modal-melt-in 0.45s cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+
+  .password-modal-leave-active .password-modal__card {
+    transition: none;
+    animation: password-modal-melt-out 0.25s cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+}
+
+@keyframes password-modal-melt-in {
+  0% {
+    transform: translateY(100%);
+    border-radius: 60px 60px 0 0;
+  }
+  40% {
+    border-radius: 20px 100px 10px 50px;
+  }
+  70% {
+    border-radius: 90px 20px 50px 10px;
+  }
+  100% {
+    transform: translateY(0);
+    border-radius: 60px 60px 0 0;
+  }
+}
+
+@keyframes password-modal-melt-out {
+  0% {
+    transform: translateY(0);
+    border-radius: 60px 60px 0 0;
+  }
+  35% {
+    border-radius: 90px 20px 50px 10px;
+  }
+  100% {
+    transform: translateY(100%);
+    border-radius: 20px 100px 10px 50px;
+  }
+}
+
 @media (max-width: 767px) {
   .password-modal {
     /* .password-modal__card below now positions itself directly (position:
@@ -547,20 +607,32 @@ onBeforeUnmount(() => {
   }
 
   .password-modal__topbar {
-    height: 60px;
+    height: 48px;
+    /* No fill on mobile — the design has the close icon sitting straight on
+       the card's own gradient, not a separate colored band (see the Figma
+       reference: node 1235-7178). */
+    background: transparent;
     border-radius: 24px 24px 0 0;
   }
 
   .password-modal__close {
-    right: 17px;
-    top: 16px;
+    /* Box stays a generous 44px tap target (shrinking the hit area was the
+       direct cause of the multi-tap-to-close complaints); only the icon
+       inside, via padding, renders at the smaller size from the Figma
+       reference. */
+    right: 8px;
+    top: 2px;
     width: 44px;
     height: 44px;
+    padding: 12px;
+    box-sizing: border-box;
   }
 
   .password-modal__body {
     overflow-y: visible;
-    padding: 12px 20px 52px;
+    /* Top padding matches the 24px gap in the Figma reference between the
+       topbar's bottom edge and the title block below it (was 12px). */
+    padding: 24px 20px 52px;
   }
 
   .password-modal__content {

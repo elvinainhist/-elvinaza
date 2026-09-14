@@ -5,16 +5,8 @@ import { createHoverRipple } from '../hoverRipple'
 
 const mobileMenuOpen = ref(false)
 
-// Same melt as everywhere else on the site (intensity 65, matching the
-// scroll-ripple's own ceiling) — a quick burst riding the menu's own
-// open/close fade, not a hover effect, so it fires once per toggle instead
-// of tracking the pointer.
-const menuWarp = createHoverRipple('mobile-menu-displacement', null, 65)
-
 watch(mobileMenuOpen, (isOpen) => {
   document.body.style.overflow = isOpen ? 'hidden' : ''
-  menuWarp.enter()
-  setTimeout(() => menuWarp.leave(), 220)
 })
 
 const navRippleLinkedin = createHoverRipple('nav-ripple-displacement-linkedin', 'nav-ripple-offset-linkedin', 22)
@@ -26,26 +18,6 @@ const navRippleCv = createHoverRipple('nav-ripple-displacement-cv', 'nav-ripple-
 <template>
   <header class="site-header">
     <svg width="0" height="0" style="position: absolute" aria-hidden="true" focusable="false">
-      <!-- Same noise field as the Hero photo / Projects cards / Contact
-           cloud (fractalNoise + numOctaves=3), but no edge-safe erode+blur
-           containment: that chain assumes a photo with content past its
-           edges worth protecting — on this full-bleed solid panel, at rest
-           it left a faint ring visible against the flat background (the
-           blur softening the alpha right at its ~20px inset never quite
-           cancels out to nothing the way it does over photo detail). The
-           panel's own edges sit flush with the screen/header, so there's
-           nothing there that needs protecting anyway. -->
-      <filter id="mobile-menu-filter" x="-20%" y="-20%" width="140%" height="140%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.012 0.022" numOctaves="3" seed="61" result="noise" />
-        <feDisplacementMap
-          id="mobile-menu-displacement"
-          in="SourceGraphic"
-          in2="noise"
-          scale="0"
-          xChannelSelector="R"
-          yChannelSelector="G"
-        />
-      </filter>
       <filter id="nav-ripple-filter-linkedin" x="-40%" y="-40%" width="180%" height="180%">
         <feTurbulence type="fractalNoise" baseFrequency="0.04 0.08" numOctaves="2" seed="27" result="noise" />
         <feOffset id="nav-ripple-offset-linkedin" in="noise" dx="0" dy="0" result="noise-shifted" />
@@ -175,7 +147,14 @@ const navRippleCv = createHoverRipple('nav-ripple-displacement-cv', 'nav-ripple-
     </div>
 
     <Transition name="site-header__mobile-menu-fade">
-      <div v-if="mobileMenuOpen" class="site-header__mobile-menu" style="filter: url(#mobile-menu-filter)">
+      <!-- No melt filter here anymore: this panel's own children are the
+           tap targets (LinkedIn/E-mail/Telegram/CV links), and an SVG
+           filter warps where a layer paints without moving its actual
+           hit-testing box — the links kept reading a tap or two off from
+           where they visually sat while the panel's open/close ripple was
+           still settling, needing repeat taps. Same root cause, same fix,
+           as PasswordModal's close button earlier. -->
+      <div v-if="mobileMenuOpen" class="site-header__mobile-menu">
         <ul class="site-header__mobile-menu-links">
           <li>
             <a

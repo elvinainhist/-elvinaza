@@ -485,11 +485,10 @@ const linkRippleTelegram = createHoverRipple(
     /* True 100vw, not capped to the mobile-container's own 480px max-width
        — "full width of the screen" means the actual screen here, not just
        the content column (the door/text above stay in that column; this
-       is a full-bleed backdrop behind it). Height generous enough (45% of
-       width) to clearly overlap the door, which is roughly 1.28x as tall
-       as this stage is wide. */
+       is a full-bleed backdrop behind it). Height ratio (134/390) matches
+       the Figma reference (node 1235-7084) exactly. */
     width: 100vw;
-    height: calc(100vw * 0.45);
+    height: calc(100vw * 0.3436);
     transform: translateX(-50%);
     overflow: hidden;
     pointer-events: none;
@@ -524,14 +523,14 @@ const linkRippleTelegram = createHoverRipple(
     width: 110%;
     height: 100%;
     object-fit: cover;
-    /* 50% (dead center of the source photo) landed on the cloud's peak,
-       leaving its own full, rounded silhouette floating inside the window
-       with plain sky visible below it all the way to the window's bottom
-       edge — reads as a separate sticker, not a backdrop the screen cuts
-       off. 40% instead frames low enough that the cloud's own body runs
-       past the window's bottom edge, so it's the window doing the
-       cropping, not the cloud's own outline. */
-    object-position: center 40%;
+    /* Matches the Figma reference (node 1235-7084): the cloud's own body
+       runs past the window's bottom edge, so it's the window doing the
+       cropping, not the cloud's own rounded outline — center 50% is what
+       lands that crop at the same height on this window's (now narrower,
+       134/390) aspect ratio; it moved once already when the window's own
+       height ratio changed, so it's tied to that value, not a fixed
+       constant. */
+    object-position: center 50%;
     display: block;
   }
 }
