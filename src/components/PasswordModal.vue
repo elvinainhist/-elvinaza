@@ -1,16 +1,11 @@
 <script setup>
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import closeIcon from '../assets/password/close-x.svg'
-import starfieldTile from '../assets/password/starfield.png'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
 })
 const emit = defineEmits(['close'])
-
-// Warm the browser's image cache so the backdrop texture isn't decoded
-// for the first time during the open transition.
-new Image().src = starfieldTile
 
 const digits = ref('')
 const error = ref(false)
@@ -180,12 +175,7 @@ onBeforeUnmount(() => {
              touchend fires immediately on the same tap regardless; .prevent
              stops the browser's follow-up synthetic click so close() only
              runs once. -->
-        <div
-          class="password-modal__backdrop"
-          :style="{ backgroundImage: `url(${starfieldTile})` }"
-          @click="close"
-          @touchend.prevent="close"
-        ></div>
+        <div class="password-modal__backdrop" @click="close" @touchend.prevent="close"></div>
 
         <div class="password-modal__card" role="dialog" aria-modal="true">
           <div class="password-modal__topbar">
@@ -266,11 +256,16 @@ onBeforeUnmount(() => {
 }
 
 .password-modal__backdrop {
+  /* Was a tiled starfield PNG: animating a full-screen repeating texture's
+     opacity means the browser has to rasterize every tile repetition each
+     time it repaints during the transition, not just blend one flat
+     color — real, avoidable cost on weaker mobile GPUs for a backdrop
+     that's only ever seen partially covered by the card anyway. A plain
+     66% dim reads the same at a glance and costs about nothing to
+     animate. */
   position: fixed;
   inset: 0;
-  background-color: #0e0e0e;
-  background-repeat: repeat;
-  background-size: 260px 260px;
+  background: rgba(14, 14, 14, 0.66);
 }
 
 .password-modal__card {
