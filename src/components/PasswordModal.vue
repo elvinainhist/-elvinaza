@@ -304,11 +304,32 @@ onBeforeUnmount(() => {
   margin-top: 80px;
   box-sizing: border-box;
   border-radius: 60px 60px 0 0;
-  background: linear-gradient(to bottom, #bbd3ee, #c9dbed);
   display: flex;
   flex-direction: column;
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   color: #0e0e0e;
+}
+
+/* The card's own background lives here, not as a `background` directly on
+   .password-modal__card, so the open/close ripple (below) can warp just
+   this plain-colored shape without dragging the real content (title,
+   input, tip text — all in .password-modal__body) or the close button
+   through the same distortion: an SVG filter warps where a layer paints,
+   not its hit-testing box, so text run through it reads as visually
+   broken/illegible while it's in motion, and the close button's tap
+   target would drift away from what's on screen the same way it did
+   when the filter briefly lived on .password-modal__card itself. */
+.password-modal__card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* No z-index: painting order alone (a ::before generates, and so paints,
+     before the card's other children) already puts this behind them; a
+     negative z-index here would instead escape .password-modal__card's
+     own stacking (position:relative with no z-index of its own doesn't
+     contain one) and risk painting behind the backdrop instead. */
+  border-radius: inherit;
+  background: linear-gradient(to bottom, #bbd3ee, #c9dbed);
 }
 
 .password-modal__topbar {
@@ -508,14 +529,16 @@ onBeforeUnmount(() => {
   will-change: transform;
 }
 
-/* Filter lives on .password-modal__body, not the whole card: an SVG
-   filter warps where content is painted but not its actual hit-testing
-   box, so putting it on the card warped the close button's visible
-   position away from where taps actually land — requiring a second tap
-   once the ripple (peak displacement 225) had decayed back to 0. Body
-   holds everything except the topbar/close button, so it can melt freely
-   without dragging an interactive control along with it. */
-.password-modal-enter-active .password-modal__body {
+/* Filter lives on .password-modal__card::before (the card's plain-color
+   background shape), not .password-modal__body or the card itself: an SVG
+   filter warps where a layer paints but not its actual hit-testing box —
+   putting it on the card warped the close button's tap target away from
+   what was on screen (needing a second tap once the ripple settled), and
+   putting it on body (holding the real title/input/tip text) made that
+   text warp and read as broken/illegible while in motion. The background
+   shape has neither problem — it's decorative and has no text or controls
+   of its own to distort or misalign. */
+.password-modal-enter-active .password-modal__card::before {
   filter: url(#modal-ripple-filter);
   will-change: filter;
 }
@@ -525,7 +548,7 @@ onBeforeUnmount(() => {
   will-change: transform;
 }
 
-.password-modal-leave-active .password-modal__body {
+.password-modal-leave-active .password-modal__card::before {
   filter: url(#modal-ripple-filter);
   will-change: filter;
 }
@@ -537,19 +560,29 @@ onBeforeUnmount(() => {
 
 @media (max-width: 767px) {
   .password-modal {
-    align-items: flex-end;
-    /* The sheet's content comfortably fits its own fixed height (below) —
-       no internal scrolling needed, and .password-modal__body's own
-       overflow-y:auto (removed below, mobile-only) combined with this one
-       meant two nested scroll regions could both engage on top of each
-       other whenever the keyboard shrank the available height, which read
-       as the whole thing being broken rather than just cramped. */
+    /* .password-modal__card below now positions itself directly (position:
+       fixed, bottom:0) instead of relying on this flex container's
+       align-items to place it — so this no longer needs to size or lay
+       out the card at all. Kept only as the backdrop's clickable/keydown
+       host; overflow stays visible since there's nothing here to scroll. */
+    display: block;
     overflow-y: visible;
   }
 
   .password-modal__card {
-    height: 508px;
-    max-height: 100%;
+    /* Fixed directly to the (keyboard-aware, via 100dvh + the viewport
+       meta's interactive-widget=resizes-content) viewport's own bottom
+       edge, sized to its own content instead of a flat 508px that left
+       empty space below short content and, combined with the keyboard
+       shrinking things further, made .password-modal__body's old
+       overflow-y:auto turn into an unwanted second scroll region stacked
+       on top of the page-scroll leak this component now also blocks. */
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 100dvh;
+    height: auto;
     min-height: 0;
     margin-top: 0;
     border-radius: 24px 24px 0 0;

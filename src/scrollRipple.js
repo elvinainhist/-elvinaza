@@ -54,7 +54,16 @@ export function initScrollRipple() {
 
   function onScroll() {
     if (rafId) return
-    lastY = window.scrollY
+    // Resets the time reference (so `dt` below isn't some large stale gap
+    // since the loop last idled) but deliberately leaves `lastY` alone: a
+    // real mouse wheel scrolls in discrete jumps that complete before the
+    // next animation frame even runs, so by the time this fires, scrollY
+    // has already landed on its new value — resetting lastY to that same
+    // value here (as an earlier version of this did) made every jump
+    // measure as zero velocity on the very next tick, since there was
+    // nothing left to move between "now" and "now". Leaving lastY at
+    // wherever the previous tick (or page load) last left it means that
+    // full jump still shows up as real, fast movement on the first tick.
     lastT = performance.now()
     rafId = requestAnimationFrame(tick)
   }
