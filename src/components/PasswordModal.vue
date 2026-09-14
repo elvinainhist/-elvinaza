@@ -1,11 +1,16 @@
 <script setup>
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import closeIcon from '../assets/password/close-x.svg'
+import starfieldTile from '../assets/password/starfield.png'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
 })
 const emit = defineEmits(['close'])
+
+// Warm the browser's image cache so the desktop backdrop tile isn't
+// decoded for the first time during the open transition.
+new Image().src = starfieldTile
 
 const digits = ref('')
 const error = ref(false)
@@ -81,6 +86,13 @@ function onAfterEnter() {
   focusInput()
 }
 
+function onAfterLeave() {
+  // Deliberately not called synchronously on close (see unlockBodyScroll's
+  // own comment) — this is what actually restores it, once the leave
+  // transition has genuinely finished.
+  unlockBodyScroll()
+}
+
 // Both the open/close ripple filter (removed) and .password-modal__card-bg
 // as a filtered sibling of the title/subtitle turned out to cost more than
 // they were worth: Chromium would silently stop painting the title text
@@ -133,6 +145,16 @@ function unlockBodyScroll() {
   window.scrollTo(0, lockedScrollY)
 }
 
+// Called from @after-leave, not synchronously from the watcher on close:
+// window.scrollTo() here, fired at the exact moment the leave transition
+// starts, makes WebKit treat the card's CSS animation as already finished
+// — confirmed directly (the card was gone from the DOM within ~60ms of a
+// 250ms leave, animation never visibly played) and confirmed gone the
+// moment scrollTo was stubbed out in the same test. Waiting until the
+// transition has actually finished sidesteps it entirely; the backdrop is
+// still fully covering the page for that whole window regardless of
+// whether the body is technically still scroll-locked underneath it.
+
 watch(
   () => props.open,
   (isOpen) => {
@@ -147,9 +169,10 @@ watch(
       // is what actually raises the on-screen keyboard on mobile — see
       // onAfterEnter's comment for why waiting for the transition doesn't.
       nextTick(focusInput)
-    } else {
-      unlockBodyScroll()
     }
+    // No else branch: unlockBodyScroll() runs from @after-leave instead,
+    // once the close transition has actually finished — see the comment
+    // above.
   },
 )
 
@@ -164,6 +187,7 @@ onBeforeUnmount(() => {
       name="password-modal"
       :duration="{ enter: 450, leave: 250 }"
       @after-enter="onAfterEnter"
+      @after-leave="onAfterLeave"
     >
       <div v-if="open" class="password-modal" @keydown="onOverlayKeydown">
         <!-- touchend (in addition to click) on both dismiss targets below:
@@ -175,7 +199,12 @@ onBeforeUnmount(() => {
              touchend fires immediately on the same tap regardless; .prevent
              stops the browser's follow-up synthetic click so close() only
              runs once. -->
-        <div class="password-modal__backdrop" @click="close" @touchend.prevent="close"></div>
+        <div
+          class="password-modal__backdrop"
+          :style="{ '--backdrop-tile': `url(${starfieldTile})` }"
+          @click="close"
+          @touchend.prevent="close"
+        ></div>
 
         <div class="password-modal__card" role="dialog" aria-modal="true">
           <div class="password-modal__topbar">
@@ -256,16 +285,22 @@ onBeforeUnmount(() => {
 }
 
 .password-modal__backdrop {
-  /* Was a tiled starfield PNG: animating a full-screen repeating texture's
-     opacity means the browser has to rasterize every tile repetition each
-     time it repaints during the transition, not just blend one flat
-     color — real, avoidable cost on weaker mobile GPUs for a backdrop
-     that's only ever seen partially covered by the card anyway. A plain
-     66% dim reads the same at a glance and costs about nothing to
-     animate. */
+  /* Flat 66% dim by default (mobile stays on this): a tiled texture's
+     opacity animating means rasterizing every tile repetition on each
+     repaint, real cost on weaker mobile GPUs. Desktop hardware doesn't
+     feel that the same way, and gets the starfield tile back below. */
   position: fixed;
   inset: 0;
   background: rgba(14, 14, 14, 0.66);
+}
+
+@media (min-width: 768px) {
+  .password-modal__backdrop {
+    background-color: #0e0e0e;
+    background-image: var(--backdrop-tile);
+    background-repeat: repeat;
+    background-size: 260px 260px;
+  }
 }
 
 .password-modal__card {
@@ -506,27 +541,37 @@ onBeforeUnmount(() => {
 @media (min-width: 768px) {
   .password-modal-enter-active .password-modal__card {
     transition: none;
-    animation: password-modal-melt-in 0.45s cubic-bezier(0.4, 0, 0.2, 1) both;
+    animation: password-modal-melt-in 0.45s ease-out both;
   }
 
   .password-modal-leave-active .password-modal__card {
     transition: none;
-    animation: password-modal-melt-out 0.25s cubic-bezier(0.4, 0, 0.2, 1) both;
+    animation: password-modal-melt-out 0.25s ease-out both;
   }
 }
 
+/* Peak distortion sits early (15-40%), not centered — cubic-bezier(0.4,0,
+   0.2,1) as the overall animation timing function (tried first) has a
+   near-zero slope for roughly its first 70% of progress, which suppressed
+   almost all visible border-radius change until right near the end, then
+   crammed it into a last-instant burst too brief to actually read as
+   distortion. Fixing the overall timing to ease-out and front-loading the
+   keyframes themselves instead — matching the old SVG ripple's own
+   envelope (hits full strength by 12% in, eases out from there, see
+   transitionRipple.js) — is what actually makes it read as the card's
+   edges warping as it arrives, not a snap at the finish line. */
 @keyframes password-modal-melt-in {
   0% {
     transform: translateY(100%);
     border-radius: 60px 60px 0 0;
   }
-  25% {
+  15% {
     border-radius: 10px 170px 50px 100px;
   }
-  50% {
+  40% {
     border-radius: 150px 10px 100px 30px;
   }
-  75% {
+  70% {
     border-radius: 30px 120px 15px 80px;
   }
   100% {
@@ -540,10 +585,10 @@ onBeforeUnmount(() => {
     transform: translateY(0);
     border-radius: 60px 60px 0 0;
   }
-  30% {
+  20% {
     border-radius: 150px 15px 90px 25px;
   }
-  70% {
+  55% {
     border-radius: 15px 160px 30px 100px;
   }
   100% {
