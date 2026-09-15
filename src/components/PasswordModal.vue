@@ -8,6 +8,20 @@ const props = defineProps({
 })
 const emit = defineEmits(['close'])
 
+// Matches the CSS: desktop plays the full melt (450ms enter / 250ms
+// leave), mobile is deliberately much snappier (200ms / 150ms — see the
+// mobile media query) since it's been asked for as "instant" repeatedly,
+// and a slower slide there visibly lags behind the keyboard's own much
+// quicker native animation, reading as the sheet struggling to catch up
+// rather than opening cleanly. This has to match whatever the live CSS
+// transition/animation duration actually is: Vue only removes the
+// enter/leave-active classes (and fires @after-enter/@after-leave) once
+// this elapses, so a mismatch either cuts the CSS motion off early or
+// leaves classes lingering well past it.
+const transitionDuration = window.matchMedia('(min-width: 768px)').matches
+  ? { enter: 450, leave: 250 }
+  : { enter: 200, leave: 150 }
+
 // Warm the browser's image cache so the desktop backdrop tile isn't
 // decoded for the first time during the open transition.
 new Image().src = starfieldTile
@@ -93,14 +107,93 @@ function onAfterLeave() {
   unlockBodyScroll()
 }
 
-// Both the open/close ripple filter (removed) and .password-modal__card-bg
-// as a filtered sibling of the title/subtitle turned out to cost more than
-// they were worth: Chromium would silently stop painting the title text
-// after the filter's attribute animation stopped, and no reliable, low-risk
-// way to force a repaint on every real device was found. The card's
-// background now lives directly on .password-modal__card again — plain,
-// with no separate layer — and the open/close motion is just the slide +
-// fade below, no distortion.
+// The open/close ripple filter (removed earlier — see the git history for
+// why: Chromium stopped painting the title text after the filter's
+// attribute animation stopped) and, later, a CSS @keyframes border-radius
+// wobble tied to Vue's enter-active/leave-active classes (removed here)
+// both turned out to be unreliable. The @keyframes version's failure mode
+// was different and specific to WebKit: frame-by-frame inspection showed
+// it freezing mid-interpolation at the exact moment Vue swaps
+// enter-from→enter-to on the transitioning root (completely normal Vue
+// transition mechanics) — even though `enter-active`, the class the
+// animation is actually scoped to, never stops matching. A plain
+// requestAnimationFrame loop writing the card's border-radius directly,
+// below, doesn't care what classes are on any ancestor, so it can't be
+// derailed by that: same pattern already proven reliable everywhere else
+// on this site (hoverRipple.js, scrollRipple.js) that drives an attribute
+// or style per frame instead of leaning on a declarative CSS animation.
+const isDesktopMelt = window.matchMedia('(min-width: 768px)').matches
+
+function lerp(a, b, t) {
+  return a + (b - a) * t
+}
+
+function radiusAt(stops, t) {
+  for (let i = 0; i < stops.length - 1; i++) {
+    const [t0, r0] = stops[i]
+    const [t1, r1] = stops[i + 1]
+    if (t <= t1) {
+      const local = t1 === t0 ? 1 : (t - t0) / (t1 - t0)
+      return r0.map((v, idx) => lerp(v, r1[idx], local))
+    }
+  }
+  return stops[stops.length - 1][1]
+}
+
+// Percentages/values mirror the old @keyframes exactly — same envelope,
+// peak distortion early (matching the original SVG ripple's own timing:
+// full strength by ~12% in, easing out from there).
+// Amplitude pushed well past what looked right on paper — at the ~20-30fps
+// this loop actually gets in practice (well short of 60fps even after the
+// WebKit rAF-throttling fix; Vue's own mount/patch work right as this
+// starts seems to still cost real contention), sampled frames land
+// between stops more often than not, which waters down whatever peak a
+// smaller swing would have hit.
+const MELT_IN_STOPS = [
+  [0, [60, 60, 0, 0]],
+  [0.15, [0, 220, 70, 140]],
+  [0.4, [200, 0, 140, 40]],
+  [0.7, [40, 160, 20, 110]],
+  [1, [60, 60, 0, 0]],
+]
+const MELT_OUT_STOPS = [
+  [0, [60, 60, 0, 0]],
+  [0.2, [200, 20, 120, 35]],
+  [0.55, [20, 210, 40, 140]],
+  [1, [60, 60, 0, 0]],
+]
+
+let meltRafId = null
+
+function playMelt(card, stops, duration) {
+  if (meltRafId) cancelAnimationFrame(meltRafId)
+  const start = performance.now()
+  function tick(now) {
+    const t = Math.min((now - start) / duration, 1)
+    const eased = 1 - Math.pow(1 - t, 2) // ease-out, matches the transform transition
+    const [tl, tr, br, bl] = radiusAt(stops, eased)
+    card.style.borderRadius = `${tl.toFixed(1)}px ${tr.toFixed(1)}px ${br.toFixed(1)}px ${bl.toFixed(1)}px`
+    if (t < 1) {
+      meltRafId = requestAnimationFrame(tick)
+    } else {
+      meltRafId = null
+      card.style.borderRadius = ''
+    }
+  }
+  meltRafId = requestAnimationFrame(tick)
+}
+
+function onEnter(el) {
+  if (!isDesktopMelt) return
+  const card = el.querySelector('.password-modal__card')
+  if (card) playMelt(card, MELT_IN_STOPS, 450)
+}
+
+function onLeave(el) {
+  if (!isDesktopMelt) return
+  const card = el.querySelector('.password-modal__card')
+  if (card) playMelt(card, MELT_OUT_STOPS, 250)
+}
 
 // Deliberately NOT tracking the keyboard via visualViewport (tried twice:
 // once via the interactive-widget=resizes-content meta + dvh, once via
@@ -185,8 +278,10 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <Transition
       name="password-modal"
-      :duration="{ enter: 450, leave: 250 }"
+      :duration="transitionDuration"
+      @enter="onEnter"
       @after-enter="onAfterEnter"
+      @leave="onLeave"
       @after-leave="onAfterLeave"
     >
       <div v-if="open" class="password-modal" @keydown="onOverlayKeydown">
@@ -525,77 +620,11 @@ onBeforeUnmount(() => {
   transform: translateY(100%);
 }
 
-/* The "melt" back, minus the part that kept breaking: this used to be an
-   SVG displacement filter on a background layer behind the title, and
-   Chromium would silently stop painting the title/subtitle once that
-   filter's JS-driven attribute animation stopped — confirmed repeatedly,
-   including a repaint workaround that held up in testing here but still
-   failed on a real device. A border-radius wobble can't ever touch text
-   painting (it only reshapes the card's own corners), so it gets the same
-   "edges warping as it arrives" read with none of that risk. Desktop
-   only: the mobile sheet needs to feel instant (see its own comments),
-   not put through a multi-step corner wobble.
-   Values ping-pong across three keyframes rather than following a single
-   settle so the corners still read as sloshing side to side, not just
-   easing straight back to their resting radius. */
-@media (min-width: 768px) {
-  .password-modal-enter-active .password-modal__card {
-    transition: none;
-    animation: password-modal-melt-in 0.45s ease-out both;
-  }
-
-  .password-modal-leave-active .password-modal__card {
-    transition: none;
-    animation: password-modal-melt-out 0.25s ease-out both;
-  }
-}
-
-/* Peak distortion sits early (15-40%), not centered — cubic-bezier(0.4,0,
-   0.2,1) as the overall animation timing function (tried first) has a
-   near-zero slope for roughly its first 70% of progress, which suppressed
-   almost all visible border-radius change until right near the end, then
-   crammed it into a last-instant burst too brief to actually read as
-   distortion. Fixing the overall timing to ease-out and front-loading the
-   keyframes themselves instead — matching the old SVG ripple's own
-   envelope (hits full strength by 12% in, eases out from there, see
-   transitionRipple.js) — is what actually makes it read as the card's
-   edges warping as it arrives, not a snap at the finish line. */
-@keyframes password-modal-melt-in {
-  0% {
-    transform: translateY(100%);
-    border-radius: 60px 60px 0 0;
-  }
-  15% {
-    border-radius: 10px 170px 50px 100px;
-  }
-  40% {
-    border-radius: 150px 10px 100px 30px;
-  }
-  70% {
-    border-radius: 30px 120px 15px 80px;
-  }
-  100% {
-    transform: translateY(0);
-    border-radius: 60px 60px 0 0;
-  }
-}
-
-@keyframes password-modal-melt-out {
-  0% {
-    transform: translateY(0);
-    border-radius: 60px 60px 0 0;
-  }
-  20% {
-    border-radius: 150px 15px 90px 25px;
-  }
-  55% {
-    border-radius: 15px 160px 30px 100px;
-  }
-  100% {
-    transform: translateY(100%);
-    border-radius: 60px 60px 0 0;
-  }
-}
+/* No CSS melt animation here — see the script's playMelt()/onEnter()/
+   onLeave() comment for why the border-radius wobble moved to a plain
+   requestAnimationFrame loop instead of a @keyframes animation tied to
+   these enter/leave-active classes. The transform transition above is
+   untouched and still does the actual slide. */
 
 @media (max-width: 767px) {
   .password-modal {
@@ -627,6 +656,18 @@ onBeforeUnmount(() => {
     min-height: 0;
     margin-top: 0;
     border-radius: 24px 24px 0 0;
+  }
+
+  /* Snappier than desktop's 450ms/250ms — matches transitionDuration in
+     the script, which Vue's :duration needs told explicitly (see its
+     comment for why). No melt animation override here: mobile keeps the
+     plain transition from the base (unscoped) rule above, just faster. */
+  .password-modal-enter-active .password-modal__card {
+    transition-duration: 0.2s;
+  }
+
+  .password-modal-leave-active .password-modal__card {
+    transition-duration: 0.15s;
   }
 
   .password-modal__topbar {
