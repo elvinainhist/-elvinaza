@@ -639,19 +639,23 @@ onBeforeUnmount(() => {
 
   .password-modal__card {
     /* Always spans from a fixed 64px below the screen's top edge down to
-       its true bottom edge — not sized to content. `bottom: 0` (not a
-       keyboard-aware offset — see the script comment above
-       lockBodyScroll) means that span always reaches the real screen
-       bottom regardless of the keyboard, so whatever portion of it falls
-       behind the keyboard just sits there covered, same reasoning as
-       before, now driven by a fixed span instead of content height
-       happening to be short enough. */
+       its true bottom edge — not sized to content. Explicit height via
+       dvh (not `bottom: 0` + auto height, tried first) because `dvh` is
+       what's actually built to track the current real viewport as
+       browser chrome (the address bar) shows/hides — a plain `bottom: 0`
+       can lag or miscompute against the wrong viewport reference through
+       that, leaving a gap at the true bottom in some states. This is NOT
+       the keyboard-aware `interactive-widget=resizes-content` mode (that
+       was deliberately removed — see the script comment above
+       lockBodyScroll); dvh here only tracks chrome, not the keyboard, so
+       whatever falls behind the keyboard still just sits there covered,
+       same reasoning as before. */
     position: fixed;
     left: 0;
     right: 0;
     top: 64px;
     bottom: 0;
-    height: auto;
+    height: calc(100dvh - 64px);
     max-height: none;
     min-height: 0;
     margin-top: 0;

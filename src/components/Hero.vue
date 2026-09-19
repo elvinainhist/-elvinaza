@@ -395,14 +395,19 @@ onBeforeUnmount(() => {
     container-type: inline-size;
     width: 100%;
     aspect-ratio: 350 / 463;
-    /* Without this, the frame's height isn't actually governed by the
-       aspect-ratio at narrower widths: .hero__mobile-top keeps its full
-       463px pre-transform layout box regardless of how much the
-       v-scale-stage transform visually shrinks it, and that raw box wins
-       over the (smaller) aspect-ratio-preferred height — leaving a growing
-       gap below the photo/title the narrower the phone (see the identical
-       issue and fix on .contact__mobile-frame). */
-    overflow: hidden;
+    /* overflow-y (not the blanket `overflow: hidden` tried first) is what
+       actually fixes the height: without clipping SOME axis, the frame's
+       height isn't governed by the aspect-ratio at narrower widths —
+       .hero__mobile-top keeps its full 463px pre-transform layout box
+       regardless of how much the v-scale-stage transform visually shrinks
+       it, and that raw box wins over the (smaller) aspect-ratio-preferred
+       height, leaving a growing gap below the photo/title the narrower the
+       phone (see the identical issue and fix on .contact__mobile-frame).
+       Clipping only Y leaves the pink scribble free to bleed past the
+       photo's right edge horizontally, as designed — a blanket
+       overflow:hidden was clipping that bleed off outright. */
+    overflow-y: hidden;
+    overflow-x: visible;
   }
 
   .hero__mobile-top {
