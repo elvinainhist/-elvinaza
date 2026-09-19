@@ -168,37 +168,48 @@ onBeforeUnmount(() => {
 
     <div class="hero__mobile mobile-container">
       <div class="hero__mobile-top-frame">
-        <div class="hero__mobile-top" v-scale-stage="350">
-          <div
-            class="hero__mobile-photo"
-            role="button"
-            tabindex="0"
-            aria-label="Показать другое фото"
-            @click="onPhotoClick"
-            @keydown.enter="onPhotoClick"
-          >
-            <img
-              :src="portraitImg"
-              alt="Эльвина Захарова"
-              class="hero__photo-img hero__photo-img--main"
-              :style="{ filter: photoWarp.active.value ? 'url(#hero-flip-filter)' : 'none' }"
-            />
-            <img
-              :src="childhoodImg"
-              alt="Эльвина в детстве"
-              class="hero__photo-img hero__photo-img--alt"
-              :style="{ filter: photoWarp.active.value ? 'url(#hero-flip-filter)' : 'none' }"
-            />
+        <div class="hero__mobile-top-clip">
+          <div class="hero__mobile-top" v-scale-stage="350">
+            <div
+              class="hero__mobile-photo"
+              role="button"
+              tabindex="0"
+              aria-label="Показать другое фото"
+              @click="onPhotoClick"
+              @keydown.enter="onPhotoClick"
+            >
+              <img
+                :src="portraitImg"
+                alt="Эльвина Захарова"
+                class="hero__photo-img hero__photo-img--main"
+                :style="{ filter: photoWarp.active.value ? 'url(#hero-flip-filter)' : 'none' }"
+              />
+              <img
+                :src="childhoodImg"
+                alt="Эльвина в детстве"
+                class="hero__photo-img hero__photo-img--alt"
+                :style="{ filter: photoWarp.active.value ? 'url(#hero-flip-filter)' : 'none' }"
+              />
+            </div>
+
+            <h1 class="hero__mobile-title">
+              <span class="hero__mobile-title-line hero__mobile-title-line--1">senior</span>
+              <span class="hero__mobile-title-line hero__mobile-title-line--2">product</span>
+              <span class="hero__mobile-title-line hero__mobile-title-line--3">designer</span>
+            </h1>
           </div>
-
-          <img :src="scribbleMobile" class="hero__mobile-scribble scroll-ripple" alt="" />
-
-          <h1 class="hero__mobile-title">
-            <span class="hero__mobile-title-line hero__mobile-title-line--1">senior</span>
-            <span class="hero__mobile-title-line hero__mobile-title-line--2">product</span>
-            <span class="hero__mobile-title-line hero__mobile-title-line--3">designer</span>
-          </h1>
         </div>
+
+        <!-- Sibling of .hero__mobile-top-clip, not nested inside it: the
+             clip wrapper is what contains the photo/title (needs overflow
+             clipping so the frame's height actually follows its
+             aspect-ratio — see .hero__mobile-top-frame's own comment), and
+             that clipping was cutting off this scribble's deliberate bleed
+             past the photo's right edge along with it. Positioned by
+             percentage of the frame's own (unclipped, aspect-ratio-locked)
+             box instead of the v-scale-stage transform, since it no longer
+             sits inside that scaled stage. -->
+        <img :src="scribbleMobile" class="hero__mobile-scribble scroll-ripple" alt="" />
       </div>
 
       <p class="hero__mobile-intro">
@@ -395,19 +406,27 @@ onBeforeUnmount(() => {
     container-type: inline-size;
     width: 100%;
     aspect-ratio: 350 / 463;
-    /* overflow-y (not the blanket `overflow: hidden` tried first) is what
-       actually fixes the height: without clipping SOME axis, the frame's
-       height isn't governed by the aspect-ratio at narrower widths —
-       .hero__mobile-top keeps its full 463px pre-transform layout box
-       regardless of how much the v-scale-stage transform visually shrinks
-       it, and that raw box wins over the (smaller) aspect-ratio-preferred
-       height, leaving a growing gap below the photo/title the narrower the
-       phone (see the identical issue and fix on .contact__mobile-frame).
-       Clipping only Y leaves the pink scribble free to bleed past the
-       photo's right edge horizontally, as designed — a blanket
-       overflow:hidden was clipping that bleed off outright. */
-    overflow-y: hidden;
-    overflow-x: visible;
+    /* position:relative so .hero__mobile-scribble below (a sibling of the
+       clip wrapper, not nested inside it) can be positioned by percentage
+       against this exact box. No overflow here — the frame itself is
+       never clipped now, so the scribble's bleed past the photo's right
+       edge is never at risk of being cut off by it. */
+    position: relative;
+  }
+
+  .hero__mobile-top-clip {
+    /* This is what actually fixes the height bug (moved off the frame
+       itself): without clipping somewhere, .hero__mobile-top keeps its
+       full 463px pre-transform layout box regardless of how much the
+       v-scale-stage transform visually shrinks it, and that raw box wins
+       over the frame's (smaller) aspect-ratio-preferred height, leaving a
+       growing gap below the photo/title the narrower the phone (see the
+       identical issue and fix on .contact__mobile-frame). Sized to 100% of
+       the frame rather than carrying its own explicit height, so it can't
+       force the frame taller the same way. */
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
   }
 
   .hero__mobile-top {
@@ -438,11 +457,18 @@ onBeforeUnmount(() => {
   }
 
   .hero__mobile-scribble {
+    /* Percentages of .hero__mobile-top-frame (position:relative, its
+       containing block) rather than the original px values against the
+       350×463 stage — this now sits outside the v-scale-stage transform
+       entirely (see the template comment), so it needs to track the
+       frame's own size on its own; the frame shares that exact 350/463
+       aspect ratio, so these percentages reproduce the original design
+       position/size exactly (246/350, 74/463, 173/350, 297/463). */
     position: absolute;
-    left: 246px;
-    top: 74px;
-    width: 173px;
-    height: 297px;
+    left: 70.286%;
+    top: 15.983%;
+    width: 49.429%;
+    height: 64.147%;
   }
 
   .hero__mobile-title {

@@ -16,11 +16,18 @@ const emit = defineEmits(['close'])
 // rather than opening cleanly. This has to match whatever the live CSS
 // transition/animation duration actually is: Vue only removes the
 // enter/leave-active classes (and fires @after-enter/@after-leave) once
-// this elapses, so a mismatch either cuts the CSS motion off early or
-// leaves classes lingering well past it.
-const transitionDuration = window.matchMedia('(min-width: 768px)').matches
-  ? { enter: 450, leave: 250 }
-  : { enter: 200, leave: 150 }
+// this elapses, so a mismatch either cuts the CSS motion off early
+// (which would also cut the melt rAF loop's own visible window short,
+// unmounting the card before it's finished) or leaves classes lingering
+// well past it. A function, called fresh from the template below rather
+// than a value computed once here — PasswordModal is mounted
+// unconditionally by App.vue from initial page load, so a plain const
+// here would freeze whatever the window happened to be at first paint.
+function getTransitionDuration() {
+  return window.matchMedia('(min-width: 768px)').matches
+    ? { enter: 450, leave: 250 }
+    : { enter: 200, leave: 150 }
+}
 
 // Warm the browser's image cache so the desktop backdrop tile isn't
 // decoded for the first time during the open transition.
@@ -122,7 +129,15 @@ function onAfterLeave() {
 // derailed by that: same pattern already proven reliable everywhere else
 // on this site (hoverRipple.js, scrollRipple.js) that drives an attribute
 // or style per frame instead of leaning on a declarative CSS animation.
-const isDesktopMelt = window.matchMedia('(min-width: 768px)').matches
+// Checked fresh in onEnter/onLeave below, not once here at module setup:
+// PasswordModal is mounted unconditionally by App.vue right from initial
+// page load (only its internal modal div is v-if'd), so a value computed
+// here would be frozen at whatever the window happened to be at first
+// paint — stale if the window/zoom changes at all before the modal is
+// ever opened.
+function isDesktopMelt() {
+  return window.matchMedia('(min-width: 768px)').matches
+}
 
 function lerp(a, b, t) {
   return a + (b - a) * t
@@ -184,13 +199,13 @@ function playMelt(card, stops, duration) {
 }
 
 function onEnter(el) {
-  if (!isDesktopMelt) return
+  if (!isDesktopMelt()) return
   const card = el.querySelector('.password-modal__card')
   if (card) playMelt(card, MELT_IN_STOPS, 450)
 }
 
 function onLeave(el) {
-  if (!isDesktopMelt) return
+  if (!isDesktopMelt()) return
   const card = el.querySelector('.password-modal__card')
   if (card) playMelt(card, MELT_OUT_STOPS, 250)
 }
@@ -278,7 +293,7 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <Transition
       name="password-modal"
-      :duration="transitionDuration"
+      :duration="getTransitionDuration()"
       @enter="onEnter"
       @after-enter="onAfterEnter"
       @leave="onLeave"
