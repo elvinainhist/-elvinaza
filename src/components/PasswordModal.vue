@@ -37,6 +37,7 @@ const digits = ref('')
 const error = ref(false)
 const isFocused = ref(false)
 const inputRef = ref(null)
+const cardRef = ref(null)
 
 let debounceTimer = null
 
@@ -198,16 +199,37 @@ function playMelt(card, stops, duration) {
   meltRafId = requestAnimationFrame(tick)
 }
 
+// Prefers the template ref (cardRef) over el.querySelector('.password-
+// modal__card') — a real user's browser was observed (via a live console
+// MutationObserver check) to never mutate the card's border-radius at
+// all despite isDesktopMelt() correctly returning true and no thrown
+// error, which points at Teleport+Transition's @enter/@leave firing
+// before the teleported subtree is fully queryable from `el` yet. The
+// ref, populated through Vue's own normal render/patch cycle rather than
+// searched for from the hook, sidesteps that. Retrying across a few
+// frames on top is a second layer of defense in case even the ref isn't
+// populated the instant the hook fires.
+function playMeltWhenReady(el, stops, duration, attempt = 0) {
+  const card = cardRef.value || el.querySelector('.password-modal__card')
+  if (card) {
+    playMelt(card, stops, duration)
+    return
+  }
+  if (attempt < 10) {
+    requestAnimationFrame(() => playMeltWhenReady(el, stops, duration, attempt + 1))
+  } else {
+    console.warn('[PasswordModal] melt: .password-modal__card never appeared for the transition hook')
+  }
+}
+
 function onEnter(el) {
   if (!isDesktopMelt()) return
-  const card = el.querySelector('.password-modal__card')
-  if (card) playMelt(card, MELT_IN_STOPS, 450)
+  playMeltWhenReady(el, MELT_IN_STOPS, 450)
 }
 
 function onLeave(el) {
   if (!isDesktopMelt()) return
-  const card = el.querySelector('.password-modal__card')
-  if (card) playMelt(card, MELT_OUT_STOPS, 250)
+  playMeltWhenReady(el, MELT_OUT_STOPS, 250)
 }
 
 // Deliberately NOT tracking the keyboard via visualViewport (tried twice:
@@ -316,7 +338,7 @@ onBeforeUnmount(() => {
           @touchend.prevent="close"
         ></div>
 
-        <div class="password-modal__card" role="dialog" aria-modal="true">
+        <div ref="cardRef" class="password-modal__card" role="dialog" aria-modal="true">
           <div class="password-modal__topbar">
             <button
               type="button"
