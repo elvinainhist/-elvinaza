@@ -260,7 +260,7 @@ const navRippleCv = createHoverRipple('nav-ripple-displacement-cv', 'nav-ripple-
   margin: 0;
   padding: 14px 14px 14px 0;
   color: #fff;
-  font-family: 'Golos Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 16px;
   text-transform: uppercase;
   white-space: nowrap;
@@ -278,7 +278,7 @@ const navRippleCv = createHoverRipple('nav-ripple-displacement-cv', 'nav-ripple-
   display: block;
   padding: 14px;
   color: #fff;
-  font-family: 'Golos Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 16px;
   text-transform: uppercase;
   text-decoration: none;

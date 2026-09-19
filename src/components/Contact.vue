@@ -344,7 +344,7 @@ const bannerFilter = computed(() =>
   left: 0;
   width: 100%;
   color: #fff;
-  font-family: 'Golos Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   font-size: 24px;
   text-transform: uppercase;
   text-align: center;
@@ -498,7 +498,7 @@ const bannerFilter = computed(() =>
     display: block;
     padding: 12px 0;
     color: #fff;
-    font-family: 'Golos Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
     font-size: 16px;
     text-transform: uppercase;
     text-align: center;
