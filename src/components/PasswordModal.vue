@@ -685,16 +685,17 @@ onBeforeUnmount(() => {
   }
 
   .password-modal__close {
-    /* Box stays a generous 44px tap target (shrinking the hit area was the
+    /* The Figma source (node 1256-2346) literally specifies an ~18.8px
+       glyph, and matching that exactly read as too small in practice —
+       going with direct real-world feedback over the literal export here.
+       Box stays a generous 44px tap target (shrinking the hit area was the
        direct cause of the multi-tap-to-close complaints); only the icon
-       inside, via padding, renders at the smaller size from the Figma
-       reference (node 1256-2346: an 18.8×18.4px glyph, 20.6px off the
-       card's right edge, 23px down from the topbar's own top). */
-    right: 9px;
-    top: 11px;
+       inside, via padding, is what's sized up. */
+    right: 4px;
+    top: 2px;
     width: 44px;
     height: 44px;
-    padding: 12px;
+    padding: 8px;
     box-sizing: border-box;
   }
 
