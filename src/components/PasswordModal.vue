@@ -38,6 +38,7 @@ const error = ref(false)
 const isFocused = ref(false)
 const inputRef = ref(null)
 const cardRef = ref(null)
+const topbarRef = ref(null)
 
 let debounceTimer = null
 
@@ -181,7 +182,7 @@ const MELT_OUT_STOPS = [
 
 let meltRafId = null
 
-function playMelt(card, stops, duration) {
+function playMelt(card, topbar, stops, duration) {
   if (meltRafId) cancelAnimationFrame(meltRafId)
   const start = performance.now()
   function tick(now) {
@@ -189,30 +190,40 @@ function playMelt(card, stops, duration) {
     const eased = 1 - Math.pow(1 - t, 2) // ease-out, matches the transform transition
     const [tl, tr, br, bl] = radiusAt(stops, eased)
     card.style.borderRadius = `${tl.toFixed(1)}px ${tr.toFixed(1)}px ${br.toFixed(1)}px ${bl.toFixed(1)}px`
+    // .password-modal__topbar sits opaquely on top of the card with its
+    // own static border-radius (60px 60px 0 0) — confirmed via real-device
+    // testing that its top corners are what's actually visible at all
+    // times, completely masking whatever the card's own top-left/
+    // top-right do underneath. Driving the topbar's matching corners here
+    // too (its own bottom corners stay square — that's where it meets
+    // .password-modal__body) is what actually makes the wobble visible.
+    if (topbar) topbar.style.borderRadius = `${tl.toFixed(1)}px ${tr.toFixed(1)}px 0 0`
     if (t < 1) {
       meltRafId = requestAnimationFrame(tick)
     } else {
       meltRafId = null
       card.style.borderRadius = ''
+      if (topbar) topbar.style.borderRadius = ''
     }
   }
   meltRafId = requestAnimationFrame(tick)
 }
 
-// Prefers the template ref (cardRef) over el.querySelector('.password-
-// modal__card') — a real user's browser was observed (via a live console
+// Prefers the template refs (cardRef/topbarRef) over el.querySelector(...)
+// — a real user's browser was observed (via a live console
 // MutationObserver check) to never mutate the card's border-radius at
 // all despite isDesktopMelt() correctly returning true and no thrown
 // error, which points at Teleport+Transition's @enter/@leave firing
 // before the teleported subtree is fully queryable from `el` yet. The
-// ref, populated through Vue's own normal render/patch cycle rather than
-// searched for from the hook, sidesteps that. Retrying across a few
-// frames on top is a second layer of defense in case even the ref isn't
-// populated the instant the hook fires.
+// refs, populated through Vue's own normal render/patch cycle rather than
+// searched for from the hook, sidestep that. Retrying across a few
+// frames on top is a second layer of defense in case even the refs
+// aren't populated the instant the hook fires.
 function playMeltWhenReady(el, stops, duration, attempt = 0) {
   const card = cardRef.value || el.querySelector('.password-modal__card')
+  const topbar = topbarRef.value || el.querySelector('.password-modal__topbar')
   if (card) {
-    playMelt(card, stops, duration)
+    playMelt(card, topbar, stops, duration)
     return
   }
   if (attempt < 10) {
@@ -339,7 +350,7 @@ onBeforeUnmount(() => {
         ></div>
 
         <div ref="cardRef" class="password-modal__card" role="dialog" aria-modal="true">
-          <div class="password-modal__topbar">
+          <div ref="topbarRef" class="password-modal__topbar">
             <button
               type="button"
               class="password-modal__close"
