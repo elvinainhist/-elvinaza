@@ -644,12 +644,25 @@ onBeforeUnmount(() => {
 
 .password-modal-enter-active .password-modal__card {
   transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: transform;
+  /* No will-change: transform here anymore. Real-device evidence: the
+     card's border-radius was confirmed (via a MutationObserver in the
+     user's own console) to be mutating correctly through a full, smooth
+     animation cycle, yet nothing visually moved on screen at all — a pure
+     paint/compositing disconnect between the CSSOM and what's actually
+     rendered. This exact codebase already hit one confirmed instance of
+     will-change causing stale paint this session (will-change: filter,
+     removed earlier for the same reason): promoting the element to its
+     own GPU-composited layer for one animating property can leave that
+     layer's rendering of a DIFFERENT co-animating property (border-radius
+     here, changing via JS at the same time as this transform transition)
+     stuck at whatever it was when the layer was promoted, particularly
+     under real hardware GPU compositing — which local headless testing
+     doesn't necessarily reproduce, unlike a real browser. */
 }
 
 .password-modal-leave-active .password-modal__card {
   transition: transform 0.25s ease-in;
-  will-change: transform;
+  /* See the enter-active rule's comment just above. */
 }
 
 .password-modal-enter-from .password-modal__card,
